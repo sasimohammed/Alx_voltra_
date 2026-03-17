@@ -34,12 +34,15 @@ export default function CalendarView() {
     const [error, setError] = useState<string | null>(null);
     const [calendarView, setCalendarView] = useState<'dayGridMonth' | 'listMonth'>('dayGridMonth');
 
+    // API base URL - directly to the backend since CORS is enabled
+    const API_BASE_URL = 'https://node-core-1qx9.vercel.app';
+
     // Fetch upcoming events
     useEffect(() => {
         const fetchEvents = async () => {
             try {
                 setLoading(true);
-                const response = await fetch('/api/events/upcoming/');
+                const response = await fetch(`${API_BASE_URL}/api/events/upcoming/`);
 
                 if (!response.ok) {
                     throw new Error('Failed to fetch events');

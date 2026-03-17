@@ -10,9 +10,7 @@ export function Footer() {
           <div className="md:col-span-5">
             <Link href="/" className="flex items-center gap-2 group mb-6 inline-block">
               <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-accent/20">
-                  <Sparkles className="text-white w-5 h-5" />
-                </div>
+
                 <span className="font-display font-bold text-2xl tracking-tight text-foreground">
                   Voltra<span className="text-accent">.</span>
                 </span>
@@ -22,10 +20,9 @@ export function Footer() {
               The premium platform for discovering, managing, and experiencing extraordinary events worldwide.
             </p>
             <div className="flex gap-4">
-              <a href="#" className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-white transition-colors duration-300"><Twitter className="w-5 h-5" /></a>
+
               <a href="#" className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-white transition-colors duration-300"><Instagram className="w-5 h-5" /></a>
               <a href="#" className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-white transition-colors duration-300"><Linkedin className="w-5 h-5" /></a>
-              <a href="#" className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:bg-primary hover:text-white transition-colors duration-300"><Github className="w-5 h-5" /></a>
             </div>
           </div>
 

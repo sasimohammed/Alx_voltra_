@@ -6,6 +6,10 @@ import { PageTransition } from "@/components/PageTransition";
 import { useState, useEffect } from "react";
 import { useUser } from "@/usercontext";
 
+// API URLs
+const NODE_API_URL = 'https://node-core-1qx9.vercel.app';
+const DJANGO_API_URL = 'https://django-kf3s.vercel.app';
+
 export default function EventDetails() {
   const [, params] = useRoute("/events/:id");
   const { token } = useUser();
@@ -64,8 +68,8 @@ export default function EventDetails() {
 
       console.log(`Fetching registered attendees for event ${params.id}...`);
 
-      // Include authorization token
-      const res = await fetch(`/api/events/registered/${params.id}/`, {
+      // Include authorization token - using Node API
+      const res = await fetch(`${NODE_API_URL}/api/events/registered/${params.id}/`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token?.access}`,
@@ -119,7 +123,7 @@ export default function EventDetails() {
     }
   };
 
-  // Fetch user data from account API
+  // Fetch user data from account API (Django)
   const fetchUserData = async () => {
     if (!token?.access) {
       alert("Please log in to register for events");
@@ -134,7 +138,7 @@ export default function EventDetails() {
 
       console.log("Fetching user data with token...");
 
-      const res = await fetch('/django-api/account/', {
+      const res = await fetch(`${DJANGO_API_URL}/api/account/`, {
         method: "GET",
         headers: {
           'Authorization': `Bearer ${token.access}`,
@@ -198,7 +202,8 @@ export default function EventDetails() {
       console.log("📤 Sending registration payload:", JSON.stringify(registrationPayload, null, 2));
       console.log("Event ID:", params?.id);
 
-      const res = await fetch(`/api/events/${params?.id}/register/`, {
+      // Use Node API for registration
+      const res = await fetch(`${NODE_API_URL}/api/events/${params?.id}/register/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token?.access}`,
@@ -287,7 +292,8 @@ export default function EventDetails() {
           await fetchRegisteredAttendees();
         }
 
-        const upcomingRes = await fetch(`/api/events/upcoming/`, {
+        // Use Node API for fetching events
+        const upcomingRes = await fetch(`${NODE_API_URL}/api/events/upcoming/`, {
           headers: { 'Accept': 'application/json' },
         });
 
@@ -301,7 +307,7 @@ export default function EventDetails() {
           }
         }
 
-        const pastRes = await fetch(`/api/events/past/`, {
+        const pastRes = await fetch(`${NODE_API_URL}/api/events/past/`, {
           headers: { 'Accept': 'application/json' },
         });
 

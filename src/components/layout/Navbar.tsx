@@ -73,7 +73,7 @@ export function Navbar() {
 
         <header
             className={cn(
-                "fixed top-[3px] inset-x-0 z-50 transition-all duration-500",
+                "fixed top-[3px] inset-x-0 z-10 transition-all duration-500",
                 isScrolled
                     ? "py-2"
                     : "py-4"
@@ -217,18 +217,8 @@ export function Navbar() {
                     ) : (
                         <div className="flex items-center gap-3">
                           {/* Notification bell with pulse animation */}
-                          <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              className="relative w-10 h-10 rounded-xl bg-secondary/50 hover:bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
-                          >
-                            <Bell className="w-4 h-4" />
-                            <motion.span
-                                animate={{ scale: [1, 1.2, 1] }}
-                                transition={{ duration: 2, repeat: Infinity }}
-                                className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full"
-                            />
-                          </motion.button>
+
+
 
                           {/* User dropdown with modern design */}
                           <div className="relative">

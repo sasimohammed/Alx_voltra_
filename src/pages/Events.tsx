@@ -5,6 +5,10 @@ import { PageTransition } from "@/components/PageTransition";
 import { EventCard } from "@/components/EventCard";
 import { useUser } from "@/usercontext";
 
+// API URLs
+const NODE_API_URL = 'https://node-core-1qx9.vercel.app';
+const DJANGO_API_URL = 'https://django-kf3s.vercel.app';
+
 // Helper function to format time
 const formatTime = (dateString: string) => {
   try {
@@ -88,16 +92,16 @@ export default function Events() {
     speaker: [] as { name: string; position: string; image: string }[] // Using "speaker" not "event_speaker"
   });
 
-  // Fetch both upcoming and past events
+  // Fetch both upcoming and past events from Node.js API
   useEffect(() => {
     const fetchAllEvents = async () => {
       try {
         setLoading(true);
 
-        const upcomingRes = await fetch('/api/events/upcoming/');
+        const upcomingRes = await fetch(`${NODE_API_URL}/api/events/upcoming/`);
         const upcomingData = await upcomingRes.json();
 
-        const pastRes = await fetch('/api/events/past/');
+        const pastRes = await fetch(`${NODE_API_URL}/api/events/past/`);
         const pastData = await pastRes.json();
 
         const allEvents = [
@@ -155,8 +159,7 @@ export default function Events() {
     }));
   };
 
-  // Handle form submission
-  // Handle form submission
+  // Handle form submission to Django API
   const handleSubmitProposal = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -197,7 +200,7 @@ export default function Events() {
 
       console.log("Submitting event proposal:", JSON.stringify(payload, null, 2));
 
-      const response = await fetch("https://django-kf3s.vercel.app/api/user/request/", {
+      const response = await fetch(`${DJANGO_API_URL}/api/user/request/`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token.access}`,

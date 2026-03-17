@@ -16,6 +16,29 @@ export default function Login() {
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>();
 
+  // Function to fetch user account details after login
+  const fetchUserAccount = async (token: string) => {
+    try {
+      const response = await fetch("https://django-kf3s.vercel.app/api/account/", {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch account details");
+      }
+
+      const accountData = await response.json();
+      console.log("Account data:", accountData);
+      return accountData;
+    } catch (error) {
+      console.error("Error fetching account:", error);
+      return null;
+    }
+  };
+
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
@@ -29,9 +52,14 @@ export default function Login() {
       console.log(result);
 
       if (res.ok) {
+        // Fetch user account details to get role
+        const accountData = await fetchUserAccount(result.access);
+
         const userData = {
-          name: result.user?.fullName || data.email.split("@")[0],
+          name: accountData?.username || result.user?.fullName || data.email.split("@")[0],
           email: data.email,
+          role: accountData?.role || "user", // Store role in user context
+          id: accountData?.id,
         };
 
         const tokenObj = { access: result.access, refresh: result.refresh };
@@ -40,7 +68,14 @@ export default function Login() {
         setShowSuccess(true);
         window.scrollTo({ top: 0, behavior: "smooth" });
 
-        setTimeout(() => setLocation("/profile"), 2000);
+        // Redirect based on role
+        setTimeout(() => {
+          if (accountData?.role === "admin") {
+            setLocation("/dashboard");
+          } else {
+            setLocation("/profile");
+          }
+        }, 2000);
       } else {
         alert(JSON.stringify(result, null, 2));
       }
@@ -53,6 +88,7 @@ export default function Login() {
 
   return (
       <PageTransition className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-background">
+        {/* Your existing JSX remains exactly the same */}
         <div className="w-full max-w-md relative z-10">
           <div className="text-center mb-8">
             <Link href="/" className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-accent/20 mb-6">
