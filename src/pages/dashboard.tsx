@@ -13,6 +13,10 @@ import { useLocation } from "wouter";
 import EventDetailsCard from "@/components/EventDetailsCard";
 import RequestDetailsCard from "@/components/RequestDetailsCard";
 
+// API URLs
+const NODE_API_URL = 'https://node-core-1qx9.vercel.app';
+const DJANGO_API_URL = 'https://django-kf3s.vercel.app';
+
 // Status filter configuration
 const STATUS_FILTERS = [
     { value: 'all', label: 'All Requests', color: 'bg-gray-500', icon: FileText },
@@ -160,7 +164,7 @@ export default function Dashboard() {
         return userRequests.filter(r => r.status?.toLowerCase() === status).length;
     };
 
-    // Fetch events - USING PROXY
+    // Fetch events - USING DIRECT API URL
     const fetchEvents = async () => {
         if (!token?.access) return;
 
@@ -168,16 +172,16 @@ export default function Dashboard() {
         setError(null);
 
         try {
-            console.log("📡 Fetching events via proxy...");
+            console.log("📡 Fetching events from Node API...");
 
-            const upcomingRes = await fetch('/api/events/upcoming/', {
+            const upcomingRes = await fetch(`${NODE_API_URL}/api/events/upcoming/`, {
                 headers: {
                     'Authorization': `Bearer ${token.access}`,
                     'Accept': 'application/json',
                 },
             });
 
-            const pastRes = await fetch('/api/events/past/', {
+            const pastRes = await fetch(`${NODE_API_URL}/api/events/past/`, {
                 headers: {
                     'Authorization': `Bearer ${token.access}`,
                     'Accept': 'application/json',
@@ -219,7 +223,7 @@ export default function Dashboard() {
         }
     };
 
-    // Fetch user requests - USING DJANGO PROXY
+    // Fetch user requests - USING DIRECT DJANGO API URL
     const fetchUserRequests = async () => {
         if (!token?.access) return;
 
@@ -227,9 +231,9 @@ export default function Dashboard() {
         setRequestsError(null);
 
         try {
-            console.log("📡 Fetching user requests via django-proxy...");
+            console.log("📡 Fetching user requests from Django API...");
 
-            const response = await fetch('/django-api/admin/requests/', {
+            const response = await fetch(`${DJANGO_API_URL}/api/admin/requests/`, {
                 headers: {
                     'Authorization': `Bearer ${token.access}`,
                     'Accept': 'application/json',
@@ -349,7 +353,7 @@ export default function Dashboard() {
         }
     };
 
-    // Handle create event - USING PROXY
+    // Handle create event - USING DIRECT NODE API URL
     const handleCreateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -382,7 +386,7 @@ export default function Dashboard() {
                 formData.append("photos", photo);
             });
 
-            const url = "/api/admin/events/createEvent";
+            const url = `${NODE_API_URL}/api/admin/events/createEvent`;
             console.log("📡 POST Request URL:", url);
 
             const response = await fetch(url, {
@@ -485,7 +489,7 @@ export default function Dashboard() {
         setShowEditModal(true);
     };
 
-    // Handle edit submit - FIXED: Properly handle existing and new photos
+    // Handle edit submit - USING DIRECT NODE API URL
     const handleEditSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -535,7 +539,7 @@ export default function Dashboard() {
                 formData.append("photos", photo);
             });
 
-            const url = `/api/admin/events/${selectedEvent.id}`;
+            const url = `${NODE_API_URL}/api/admin/events/${selectedEvent.id}`;
             console.log("📡 PATCH Request URL:", url);
 
             const response = await fetch(url, {
@@ -594,7 +598,7 @@ export default function Dashboard() {
         }
     };
 
-    // Handle delete event
+    // Handle delete event - USING DIRECT NODE API URL
     const handleDeleteClick = (event: any) => {
         setSelectedEvent(event);
         setShowDeleteModal(true);
@@ -608,7 +612,7 @@ export default function Dashboard() {
         setSubmitError(null);
 
         try {
-            const url = `/api/admin/events/${selectedEvent.id}`;
+            const url = `${NODE_API_URL}/api/admin/events/${selectedEvent.id}`;
             console.log("📡 DELETE Request URL:", url);
 
             const response = await fetch(url, {
@@ -691,7 +695,18 @@ export default function Dashboard() {
                         </div>
 
                         <div className="flex gap-2 sm:gap-3">
-
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => {
+                                    fetchEvents();
+                                    fetchUserRequests();
+                                }}
+                                className="px-3 sm:px-4 py-2 sm:py-3 rounded-xl bg-secondary/50 backdrop-blur-sm border border-white/10 text-foreground font-semibold text-sm sm:text-base flex items-center gap-2 hover:bg-secondary/80 transition-all"
+                            >
+                                <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
+                                <span className="hidden sm:inline">Refresh</span>
+                            </motion.button>
                             <motion.button
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
