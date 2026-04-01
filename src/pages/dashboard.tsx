@@ -51,23 +51,30 @@ const transformRequest = (apiRequest: any) => ({
     speaker: apiRequest.speaker || []
 });
 
-const formatTime = (dateString: string) => {
-    try {
-        return new Date(dateString).toLocaleTimeString('en-US', {
-            hour: '2-digit', minute: '2-digit', hour12: true
-        });
-    } catch { return "7:00 PM"; }
-};
+// Add this helper function to convert "2:30 PM" to "14:30" for the time input
 
+
+
+// Replace the transformEvent function with this fixed version
 const transformEvent = (apiEvent: any) => {
+    // Helper to format time for display
     const formatTimeForDisplay = (timeStr: string, dateStr: string) => {
+        // If there's a time string from the API
         if (timeStr && timeStr !== "") {
-            // If time is already in "H:MM AM/PM" format
+            // If it's already in "2:30 PM" format
             if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(timeStr)) {
                 return timeStr;
             }
-            // If time is in "HH:MM" 24-hour format
+            // If it's in "14:30" 24-hour format
             if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+                const [hours, minutes] = timeStr.split(':');
+                const hour = parseInt(hours, 10);
+                const period = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 || 12;
+                return `${hour12}:${minutes} ${period}`;
+            }
+            // If it's in "14:30:00" format with seconds
+            if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/)) {
                 const [hours, minutes] = timeStr.split(':');
                 const hour = parseInt(hours, 10);
                 const period = hour >= 12 ? 'PM' : 'AM';
@@ -77,16 +84,19 @@ const transformEvent = (apiEvent: any) => {
             return timeStr;
         }
 
-        // If no time provided, try to extract from date
+        // No time field, try to extract from date
         if (dateStr) {
             try {
-                return new Date(dateStr).toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                });
+                const date = new Date(dateStr);
+                if (!isNaN(date.getTime())) {
+                    return date.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                }
             } catch {
-                return "7:00 PM";
+                // Fall through
             }
         }
         return "7:00 PM";
@@ -95,7 +105,7 @@ const transformEvent = (apiEvent: any) => {
     return {
         id: apiEvent.event_id,
         title: apiEvent.title || "Untitled Event",
-        date: apiEvent.date || new Date().toISOString().split('T')[0],
+        date: apiEvent.date ? apiEvent.date.split('T')[0] : new Date().toISOString().split('T')[0],
         city: apiEvent.city || "Unknown City",
         description: apiEvent.description || "",
         type: apiEvent.type || "unknown",
@@ -115,27 +125,73 @@ const transformEvent = (apiEvent: any) => {
         paid: apiEvent.paid || false
     };
 };
-const formatTimeForAPI = (timeStr: string) => {
-    if (!timeStr) return "";
-    if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(timeStr)) return timeStr;
-    try {
-        if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
-            const [hours, minutes] = timeStr.split(':');
-            const hour = parseInt(hours, 10);
-            const period = hour >= 12 ? 'PM' : 'AM';
-            const hour12 = hour % 12 || 12;
-            return `${hour12}:${minutes} ${period}`;
-        }
-        if (timeStr.includes('T') || timeStr.includes('Z')) {
-            const date = new Date(timeStr);
-            let hours = date.getHours();
-            const minutes = date.getMinutes();
-            const period = hours >= 12 ? 'PM' : 'AM';
-            hours = hours % 12 || 12;
-            return `${hours}:${minutes.toString().padStart(2, '0')} ${period}`;
-        }
+
+// Also update the convertTo24Hour function to handle empty values
+const convertTo24Hour = (timeStr: string): string => {
+    if (!timeStr || timeStr === "") return "";
+
+    // If it's already in 24-hour format
+    if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
         return timeStr;
-    } catch { return timeStr; }
+    }
+
+    // Convert from "2:30 PM" to "14:30"
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/i);
+    if (match) {
+        let hours = parseInt(match[1], 10);
+        const minutes = match[2];
+        const period = match[3].toUpperCase();
+
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+
+        return `${hours.toString().padStart(2, '0')}:${minutes}`;
+    }
+
+    // If it's in "2:30PM" format (no space)
+    const matchNoSpace = timeStr.match(/^(\d{1,2}):(\d{2})(AM|PM)$/i);
+    if (matchNoSpace) {
+        let hours = parseInt(matchNoSpace[1], 10);
+        const minutes = matchNoSpace[2];
+        const period = matchNoSpace[3].toUpperCase();
+
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+
+        return `${hours.toString().padStart(2, '0')}:${minutes}`;
+    }
+
+    return "";
+};
+
+// Also update the formatTimeForAPI function to handle more cases
+const formatTimeForAPI = (timeStr: string): string => {
+    if (!timeStr || timeStr === "") return "";
+
+    // If it's already in "2:30 PM" format
+    if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(timeStr)) {
+        return timeStr;
+    }
+
+    // If it's in "14:30" 24-hour format
+    if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+        const [hours, minutes] = timeStr.split(':');
+        const hour = parseInt(hours, 10);
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const hour12 = hour % 12 || 12;
+        return `${hour12}:${minutes} ${period}`;
+    }
+
+    // If it's in "14:30:00" format with seconds
+    if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/)) {
+        const [hours, minutes] = timeStr.split(':');
+        const hour = parseInt(hours, 10);
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const hour12 = hour % 12 || 12;
+        return `${hour12}:${minutes} ${period}`;
+    }
+
+    return timeStr;
 };
 
 const EMPTY_FORM = {
@@ -269,7 +325,32 @@ export default function Dashboard() {
         const fd = new FormData();
         if (eventForm.title?.trim()) fd.append("title", eventForm.title.trim());
         if (eventForm.date) fd.append("date", eventForm.date);
-        if (eventForm.time) fd.append("time", formatTimeForAPI(eventForm.time));
+
+        // FIX: Format time properly before sending
+        let timeToSend = "";
+        if (eventForm.time) {
+            // If time is in "HH:MM" format from time input
+            if (eventForm.time.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+                const [hours, minutes] = eventForm.time.split(':');
+                const hour = parseInt(hours, 10);
+                const period = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 || 12;
+                timeToSend = `${hour12}:${minutes} ${period}`;
+            }
+            // If time is already in correct format
+            else if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(eventForm.time)) {
+                timeToSend = eventForm.time;
+            }
+            // Otherwise, use as is
+            else {
+                timeToSend = eventForm.time;
+            }
+        }
+
+        console.log("📤 Sending time:", eventForm.time, "->", timeToSend);
+
+        if (timeToSend) fd.append("time", timeToSend);
+
         if (eventForm.city?.trim()) fd.append("city", eventForm.city.trim());
         if (eventForm.description?.trim()) fd.append("description", eventForm.description.trim());
         if (eventForm.type) fd.append("type", eventForm.type);
@@ -359,7 +440,7 @@ export default function Dashboard() {
         setEventForm({
             title: event.title || "",
             date: event.date ? event.date.split('T')[0] : "",
-            time: event.time || "",
+            time: event.time ? convertTo24Hour(event.time) : "",
             city: event.city || "",
             description: event.description || "",
             type: event.type || "",
