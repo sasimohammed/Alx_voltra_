@@ -175,6 +175,32 @@ const ProgressiveImage = ({
   );
 };
 
+// Optimized image checking with parallel requests and shorter timeout
+const checkImagesInParallel = async (imagePaths: string[], timeout = 1000): Promise<string[]> => {
+  const checkImage = (path: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const timer = setTimeout(() => {
+        img.src = '';
+        resolve(null);
+      }, timeout);
+
+      img.onload = () => {
+        clearTimeout(timer);
+        resolve(path);
+      };
+      img.onerror = () => {
+        clearTimeout(timer);
+        resolve(null);
+      };
+      img.src = path;
+    });
+  };
+
+  const results = await Promise.all(imagePaths.map(checkImage));
+  return results.filter((path): path is string => path !== null);
+};
+
 export default function Gallery() {
   const [selectedPhoto, setSelectedPhoto] = useState<SelectedPhoto | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -182,79 +208,45 @@ export default function Gallery() {
   const [error, setError] = useState<string | null>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
 
-  // Helper function to check if image exists
-  const checkImageExists = useCallback((url: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const timeout = setTimeout(() => {
-        img.src = '';
-        resolve(false);
-      }, 2000);
-
-      img.onload = () => {
-        clearTimeout(timeout);
-        resolve(true);
-      };
-
-      img.onerror = () => {
-        clearTimeout(timeout);
-        resolve(false);
-      };
-
-      img.src = url;
-    });
-  }, []);
-
   useEffect(() => {
     const loadImages = async () => {
       setLoading(true);
       setError(null);
 
       try {
-        const foundImages: Photo[] = [];
+        // Generate all possible image paths at once
         const maxImages = 50;
+        const extensions = ['.jpeg', '.jpg', '.png', '.webp'];
 
+        const pathsToCheck: string[] = [];
         for (let i = 1; i <= maxImages; i++) {
-          const imagePath = `/gallery/image${i}.jpeg`;
-          const exists = await checkImageExists(imagePath);
-
-          if (exists) {
-            console.log(`Found image: image${i}.jpeg`);
-            foundImages.push({
-              id: `photo-${i}`,
-              url: imagePath,
-              title: `Event Moment ${i}`
-            });
-          } else {
-            if (i > 3 && foundImages.length === 0) {
-              break;
-            }
+          for (const ext of extensions) {
+            pathsToCheck.push(`/gallery/image${i}${ext}`);
           }
         }
 
-        if (foundImages.length === 0) {
-          const extensions = ['.jpg', '.png', '.webp'];
-          for (let i = 1; i <= 30; i++) {
-            for (const ext of extensions) {
-              const imagePath = `/gallery/image${i}${ext}`;
-              const exists = await checkImageExists(imagePath);
-              if (exists) {
-                console.log(`Found image: image${i}${ext}`);
-                foundImages.push({
-                  id: `photo-${i}`,
-                  url: imagePath,
-                  title: `Event Moment ${i}`
-                });
-                break;
-              }
-            }
-          }
-        }
+        console.log(`Checking ${pathsToCheck.length} possible image paths in parallel...`);
+
+        // Check all images in parallel
+        const foundPaths = await checkImagesInParallel(pathsToCheck, 800);
+
+        console.log(`Found ${foundPaths.length} images`);
+
+        const foundImages: Photo[] = foundPaths.map((path, index) => {
+          // Extract image number from path
+          const match = path.match(/image(\d+)/);
+          const imageNumber = match ? match[1] : index + 1;
+          return {
+            id: `photo-${imageNumber}`,
+            url: path,
+            title: `Event Moment ${imageNumber}`
+          };
+        });
 
         if (foundImages.length === 0) {
           setError(`No images found in /public/gallery/ folder. Make sure your images are named like: image1.jpeg, image2.jpeg, etc.`);
         } else {
-          console.log(`Total images found: ${foundImages.length}`);
+          console.log(`Total images loaded: ${foundImages.length}`);
         }
 
         setPhotos(foundImages);
@@ -267,7 +259,7 @@ export default function Gallery() {
     };
 
     loadImages();
-  }, [checkImageExists]);
+  }, []);
 
   const handlePhotoClick = useCallback((url: string, index: number) => {
     setSelectedPhoto({ url, index });
