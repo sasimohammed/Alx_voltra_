@@ -3,64 +3,34 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   User, Settings, Calendar as CalIcon, LogOut, CheckCircle, XCircle,
   FileText, Clock, AlertCircle, Filter, MapPin, Calendar, Users,
-  Tag, Target, Eye, ChevronDown, ChevronUp, Sparkles, Zap, Globe,
-  Briefcase, MessageCircle, Star, Award
+  Tag, Target, Eye, ChevronDown, ChevronUp, Sparkles, Globe,
+  Briefcase, Star, Award, Linkedin, LayoutDashboard
 } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { EventCard } from "@/components/EventCard";
 import { Link } from "wouter";
 import { useUser } from "@/usercontext";
 
-// Status badge component for requests - Modern glass morphism style
+const NODE_API_URL = 'https://node-core-1qx9.vercel.app';
+const DJANGO_API_URL = 'https://django-kf3s.vercel.app';
+
 const RequestStatusBadge = ({ status }: { status: string }) => {
   const getStatusConfig = () => {
-    switch(status?.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case 'approved':
-        return {
-          color: 'bg-emerald-500',
-          icon: Award,
-          text: 'Approved',
-          gradient: 'from-emerald-500 to-green-500',
-          glow: 'shadow-emerald-500/30'
-        };
+        return { color: 'bg-emerald-500', icon: Award, text: 'Approved', gradient: 'from-emerald-500 to-green-500', glow: 'shadow-emerald-500/30' };
       case 'rejected':
-        return {
-          color: 'bg-rose-500',
-          icon: XCircle,
-          text: 'Rejected',
-          gradient: 'from-rose-500 to-red-500',
-          glow: 'shadow-rose-500/30'
-        };
+        return { color: 'bg-rose-500', icon: XCircle, text: 'Rejected', gradient: 'from-rose-500 to-red-500', glow: 'shadow-rose-500/30' };
       case 'reviewing':
-        return {
-          color: 'bg-blue-500',
-          icon: Eye,
-          text: 'Reviewing',
-          gradient: 'from-blue-500 to-indigo-500',
-          glow: 'shadow-blue-500/30'
-        };
+        return { color: 'bg-blue-500', icon: Eye, text: 'Reviewing', gradient: 'from-blue-500 to-indigo-500', glow: 'shadow-blue-500/30' };
       case 'new':
-        return {
-          color: 'bg-purple-500',
-          icon: Sparkles,
-          text: 'New',
-          gradient: 'from-purple-500 to-pink-500',
-          glow: 'shadow-purple-500/30'
-        };
+        return { color: 'bg-purple-500', icon: Sparkles, text: 'New', gradient: 'bg-purple-500', glow: 'shadow-purple-500/30' };
       default:
-        return {
-          color: 'bg-gray-500',
-          icon: Clock,
-          text: status || 'Unknown',
-          gradient: 'from-gray-500 to-gray-600',
-          glow: 'shadow-gray-500/30'
-        };
+        return { color: 'bg-gray-500', icon: Clock, text: status || 'Unknown', gradient: 'from-gray-500 to-gray-600', glow: 'shadow-gray-500/30' };
     }
   };
-
   const config = getStatusConfig();
   const Icon = config.icon;
-
   return (
       <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
@@ -74,7 +44,6 @@ const RequestStatusBadge = ({ status }: { status: string }) => {
   );
 };
 
-// Status filter options with modern styling
 const STATUS_FILTERS = [
   { value: 'all', label: 'All Requests', color: 'bg-gray-500', icon: FileText },
   { value: 'new', label: 'New', color: 'bg-purple-500', icon: Sparkles },
@@ -83,46 +52,45 @@ const STATUS_FILTERS = [
   { value: 'rejected', label: 'Rejected', color: 'bg-rose-500', icon: XCircle }
 ];
 
-// Modern stat card component
-const StatCard = ({ icon: Icon, label, value, color }: any) => (
-    <motion.div
-        whileHover={{ y: -2 }}
-        className={`${color} bg-opacity-10 rounded-2xl p-4 backdrop-blur-sm border border-white/10`}
-    >
-      <div className="flex items-center gap-3">
-        <div className={`p-3 rounded-xl ${color} bg-opacity-20`}>
-          <Icon className={`w-5 h-5 ${color.replace('bg-', 'text-')}`} />
-        </div>
-        <div>
-          <p className="text-2xl font-bold text-foreground">{value}</p>
-          <p className="text-xs text-muted-foreground">{label}</p>
-        </div>
-      </div>
-    </motion.div>
-);
+const formatTime = (timeStr: string) => {
+  if (!timeStr) return "Time not set";
+  try {
+    const [hours, minutes] = timeStr.split(":");
+    const h = parseInt(hours);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 || 12;
+    return `${h12}:${minutes} ${ampm}`;
+  } catch {
+    return timeStr;
+  }
+};
 
 export default function Profile() {
   const [activeTab, setActiveTab] = useState<"tickets" | "requests" | "settings">("tickets");
   const [isEditing, setIsEditing] = useState(false);
   const [apiUser, setApiUser] = useState<any>(null);
-  const [formData, setFormData] = useState({ username: "", email: "", phone_no: "", city: "" });
+  const [formData, setFormData] = useState({
+    username: "",
+    email: "",
+    phone_no: "",
+    city: "",
+    track: "",
+    linked_profile: ""
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [registeredEvents, setRegisteredEvents] = useState<any[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
-  const [allEvents, setAllEvents] = useState<any[]>([]);
   const [unregisteringId, setUnregisteringId] = useState<number | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // State for event requests
   const [eventRequests, setEventRequests] = useState<any[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<any[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [requestsError, setRequestsError] = useState<string | null>(null);
 
-  // Filter state
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [expandedRequestId, setExpandedRequestId] = useState<number | null>(null);
@@ -133,9 +101,8 @@ export default function Profile() {
   useEffect(() => {
     const fetchUserData = async () => {
       if (!token?.access) return;
-
       try {
-        const response = await fetch("https://django-kf3s.vercel.app/api/account/", {
+        const response = await fetch(`${DJANGO_API_URL}/api/account/`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token.access}`,
@@ -143,67 +110,37 @@ export default function Profile() {
             Accept: "application/json",
           },
         });
-
-
-
-
         if (!response.ok) return;
-
         const data = await response.json();
-        console.log("✅ User profile data:", data);
         setApiUser(data);
         setFormData({
           username: data.username || "",
           email: data.email || "",
           phone_no: data.phone_no || "",
           city: data.city || "",
+          track: data.track || "",
+          linked_profile: data.linked_profile || "",
         });
       } catch (err) {
         console.error("❌ Error fetching profile:", err);
       }
     };
-
     fetchUserData();
   }, [token]);
 
-  // Fetch all events
-  useEffect(() => {
-    const fetchAllEvents = async () => {
-      try {
-        const upcomingRes = await fetch('/api/events/upcoming/');
-        const upcomingData = await upcomingRes.json();
 
-        const pastRes = await fetch('/api/events/past/');
-        const pastData = await pastRes.json();
 
-        const allEventsList = [
-          ...(upcomingData.data || []),
-          ...(pastData.data || [])
-        ];
-
-        console.log("📚 All events fetched:", allEventsList);
-        setAllEvents(allEventsList);
-      } catch (err) {
-        console.error("❌ Error fetching all events:", err);
-      }
-    };
-
-    fetchAllEvents();
-  }, []);
-
-  // Fetch registered events
+  // Fetch registered events — uses nested event_id object from myEvents response directly
   useEffect(() => {
     const fetchRegisteredEvents = async () => {
       if (!token?.access) {
         setLoadingEvents(false);
         return;
       }
-
       try {
         setLoadingEvents(true);
-        console.log("Fetching registered events...");
 
-        const response = await fetch("https://django-kf3s.vercel.app/api/myEvents/", {
+        const myEventsRes = await fetch(`${DJANGO_API_URL}/api/myEvents/`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token.access}`,
@@ -212,65 +149,45 @@ export default function Profile() {
           },
         });
 
-        if (!response.ok) {
-          console.error("Failed to fetch registered events:", response.status);
+        if (!myEventsRes.ok) {
           setRegisteredEvents([]);
           return;
         }
 
-        const data = await response.json();
-        console.log("✅ Registered events from API:", data);
+        const myEventsData = await myEventsRes.json();
+        const registrations: any[] = myEventsData.results || [];
 
-        if (data.results && Array.isArray(data.results)) {
-          const eventsWithDetails = await Promise.all(
-              data.results.map(async (registration: any) => {
-                let eventDetails = allEvents.find(e => e.event_id === registration.event_id);
-
-                if (!eventDetails) {
-                  try {
-                    const upcomingRes = await fetch(`/api/events/upcoming/`);
-                    const upcomingData = await upcomingRes.json();
-                    eventDetails = upcomingData.data?.find((e: any) => e.event_id === registration.event_id);
-
-                    if (!eventDetails) {
-                      const pastRes = await fetch(`/api/events/past/`);
-                      const pastData = await pastRes.json();
-                      eventDetails = pastData.data?.find((e: any) => e.event_id === registration.event_id);
-                    }
-                  } catch (err) {
-                    console.error(`❌ Error fetching event ${registration.event_id}:`, err);
-                  }
-                }
-
-                return {
-                  id: registration.event_id,
-                  eventuser_id: registration.eventuser_id,
-                  track: registration.track,
-                  is_checked: registration.is_checked,
-                  title: eventDetails?.title || `Event #${registration.event_id}`,
-                  date: eventDetails?.date || new Date().toISOString(),
-                  city: eventDetails?.city || "Unknown City",
-                  description: eventDetails?.description || "",
-                  type: eventDetails?.type || "unknown",
-                  mode: eventDetails?.type === "online" ? "Online" : "In Person",
-                  category: eventDetails?.category || "General",
-                  image: eventDetails?.photos?.[0] || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop",
-                  status: eventDetails?.is_finished ? "Past" : "Upcoming",
-                  price: 0,
-                  speaker: eventDetails?.event_speakers?.[0]?.name || "TBD",
-                  attendees: eventDetails?.num_attendees || 0,
-                  time: formatTime(eventDetails?.date),
-                  registration_track: registration.track,
-                  registration_id: registration.eventuser_id
-                };
-              })
-          );
-
-          console.log("📝 Transformed events with details:", eventsWithDetails);
-          setRegisteredEvents(eventsWithDetails);
-        } else {
+        if (registrations.length === 0) {
           setRegisteredEvents([]);
+          return;
         }
+
+        // event_id in the response IS the full nested event object
+        const events = registrations.map((registration: any) => {
+          const ev = registration.event_id;
+          return {
+            id: ev.event_id,
+            event_id: ev.event_id,
+            title: ev.title || "Untitled Event",
+            date: ev.date || new Date().toISOString().split("T")[0],
+            time: ev.time || "",
+            city: ev.city || "Unknown City",
+            description: ev.description || "",
+            type: ev.type || "unknown",
+            mode: ev.type === "online" ? "Online" : "Offline",
+            category: ev.category || "General",
+            image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop",
+            status: ev.is_finished ? "Past" : "Upcoming",
+            price: ev.paid ? 1 : 0,
+            speaker: ev.event_speakers?.[0] || "TBD",
+            attendees: 0,
+            eventuser_id: registration.eventuser_id,
+            registration_id: registration.eventuser_id,
+            is_checked: registration.is_checked,
+          };
+        });
+
+        setRegisteredEvents(events);
       } catch (err) {
         console.error("❌ Error fetching registered events:", err);
         setRegisteredEvents([]);
@@ -279,54 +196,27 @@ export default function Profile() {
       }
     };
 
-    if (allEvents.length > 0 || token?.access) {
-      fetchRegisteredEvents();
-    }
-  }, [token, allEvents]);
+    fetchRegisteredEvents();
+  }, [token]);
 
-  // Fetch all user requests
+  // Fetch user requests
   useEffect(() => {
     const fetchUserRequests = async () => {
       if (!token?.access) return;
-
       setLoadingRequests(true);
       setRequestsError(null);
-
       try {
-        console.log("📋 Fetching all user requests...");
-
-        // Build URL with query parameters
-        let url = "https://django-kf3s.vercel.app/api/user/requests/";
-
-        // Add status filter as query parameter
-        if (statusFilter !== 'all') {
-          url += `?status=${statusFilter}`;
-        }
-
+        let url = `${DJANGO_API_URL}/api/user/requests/`;
+        if (statusFilter !== 'all') url += `?status=${statusFilter}`;
         const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token.access}`,
-            Accept: "application/json",
-          },
+          headers: { Authorization: `Bearer ${token.access}`, Accept: "application/json" },
         });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch requests: ${response.status}`);
-        }
-
+        if (!response.ok) throw new Error(`Failed to fetch requests: ${response.status}`);
         const data = await response.json();
-        console.log(`✅ User requests (filter: ${statusFilter}):`, data);
-
-        // Handle different response formats
-        let requests = [];
-        if (Array.isArray(data)) {
-          requests = data;
-        } else if (data.results && Array.isArray(data.results)) {
-          requests = data.results;
-        } else if (data.data && Array.isArray(data.data)) {
-          requests = data.data;
-        }
-
+        let requests: any[] = [];
+        if (Array.isArray(data)) requests = data;
+        else if (data.results && Array.isArray(data.results)) requests = data.results;
+        else if (data.data && Array.isArray(data.data)) requests = data.data;
         setEventRequests(requests);
       } catch (err) {
         console.error("❌ Error fetching user requests:", err);
@@ -335,44 +225,36 @@ export default function Profile() {
         setLoadingRequests(false);
       }
     };
-
-    if (token?.access && activeTab === "requests") {
-      fetchUserRequests();
-    }
+    if (token?.access && activeTab === "requests") fetchUserRequests();
   }, [token, activeTab, statusFilter]);
 
-  // Apply client-side filtering as backup
+  // Client-side filter
   useEffect(() => {
     if (statusFilter === 'all') {
       setFilteredRequests(eventRequests);
     } else {
-      const filtered = eventRequests.filter(req =>
-          req.status?.toLowerCase() === statusFilter.toLowerCase()
-      );
-      setFilteredRequests(filtered);
+      setFilteredRequests(eventRequests.filter(req => req.status?.toLowerCase() === statusFilter.toLowerCase()));
     }
   }, [eventRequests, statusFilter]);
 
-  // Handle unregister from event
+  // Unregister
   const handleUnregister = async () => {
-    if (!selectedEvent || !token?.access || !apiUser?.id) {
+    if (!selectedEvent || !token?.access) {
       alert("You need to be logged in to unregister");
       return;
     }
-
     try {
-      setUnregisteringId(selectedEvent.id);
-
-      console.log(`🔄 Unregistering from event ${selectedEvent.id}...`);
-      console.log("User ID from apiUser:", apiUser.id);
-
+      const eventId = selectedEvent.event_id;
+      if (!eventId || typeof eventId === 'object') {
+        alert("Invalid event ID. Please try again.");
+        return;
+      }
+      setUnregisteringId(eventId);
       const payload = {
-        id: apiUser.id
+        eventuser_id: selectedEvent.eventuser_id,
+        user_id: apiUser?.id,
       };
-
-      console.log("📤 Sending DELETE request with body:", payload);
-
-      const response = await fetch(`/api/events/${selectedEvent.id}/unregister`, {
+      const response = await fetch(`${NODE_API_URL}/api/events/${eventId}/unregister`, {
         method: "DELETE",
         headers: {
           'Authorization': `Bearer ${token.access}`,
@@ -381,37 +263,17 @@ export default function Profile() {
         },
         body: JSON.stringify(payload),
       });
-
-      console.log("Response status:", response.status);
-
       if (response.ok) {
-        let responseData;
-        try {
-          responseData = await response.json();
-        } catch {
-          responseData = { success: true };
-        }
-
-        console.log("✅ Successfully unregistered:", responseData);
-
-        setRegisteredEvents(prev => prev.filter(e => e.id !== selectedEvent.id));
-
+        setRegisteredEvents(prev => prev.filter(e => e.event_id !== eventId));
         setSuccessMessage(`Successfully unregistered from "${selectedEvent.title}"`);
         setShowSuccessMessage(true);
-        setTimeout(() => {
-          setShowSuccessMessage(false);
-        }, 3000);
-
+        setTimeout(() => setShowSuccessMessage(false), 3000);
       } else {
         const errorData = await response.json();
-        console.error("❌ Error response:", errorData);
-        const errorMessage = errorData.message || errorData.error || "Failed to unregister";
-        alert(`Failed to unregister: ${errorMessage}`);
+        alert(`Failed to unregister: ${errorData.message || errorData.error || "Unknown error"}`);
       }
-
     } catch (err: any) {
-      console.error("❌ Error unregistering:", err);
-      alert(err.message || "An error occurred while trying to unregister. Please check your connection and try again.");
+      alert(err.message || "An error occurred. Please try again.");
     } finally {
       setUnregisteringId(null);
       setShowConfirmDialog(false);
@@ -419,120 +281,77 @@ export default function Profile() {
     }
   };
 
-  // Open confirmation dialog
   const confirmUnregister = (event: any) => {
     setSelectedEvent(event);
     setShowConfirmDialog(true);
   };
 
-  // Helper function to format time
-  const formatTime = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch {
-      return "7:00 PM";
-    }
-  };
-
-  // Format date for display
   const formatDate = (dateString: string) => {
+    if (!dateString) return "Date not available";
     try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
+      return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     } catch {
       return "Date not available";
     }
   };
 
-  // Handle input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Save profile changes
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token?.access) return;
     setIsSaving(true);
-
     try {
-      const response = await fetch("https://django-kf3s.vercel.app/api/update/account/", {
+      const response = await fetch(`${DJANGO_API_URL}/api/update/account/`, {
         method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token.access}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token.access}`, "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        console.error("❌ Error updating profile:", errData);
-        alert("Failed to save changes.");
-        return;
-      }
-
+      if (!response.ok) { alert("Failed to save changes."); return; }
       const updatedData = await response.json();
-      console.log("✅ Profile updated:", updatedData);
       setApiUser(updatedData);
       setFormData({
         username: updatedData.username || "",
         email: updatedData.email || "",
         phone_no: updatedData.phone_no || "",
         city: updatedData.city || "",
+        track: updatedData.track || "",
+        linked_profile: updatedData.linked_profile || "",
       });
       setIsEditing(false);
-
       setSuccessMessage("Profile updated successfully!");
       setShowSuccessMessage(true);
-      setTimeout(() => {
-        setShowSuccessMessage(false);
-      }, 3000);
-
+      setTimeout(() => setShowSuccessMessage(false), 3000);
     } catch (err) {
-      console.error("❌ Error updating profile:", err);
       alert("Failed to save changes.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Display data
   const user = {
     id: apiUser?.id,
     name: apiUser?.username || apiUser?.email?.split("@")[0] || "User",
     email: apiUser?.email || "example@example.com",
     phone: apiUser?.phone_no || "-",
     city: apiUser?.city || "-",
+    track: apiUser?.track || "Not specified",
+    linked_profile: apiUser?.linked_profile || "",
     role: apiUser?.role || "user",
     joinDate: "March 2024",
   };
 
-  // Get counts for each status
   const getStatusCount = (status: string) => {
     if (status === 'all') return eventRequests.length;
     return eventRequests.filter(req => req.status?.toLowerCase() === status).length;
   };
 
-  // Get statistics
-  const stats = {
-    total: eventRequests.length,
-    new: getStatusCount('new'),
-    reviewing: getStatusCount('reviewing'),
-    approved: getStatusCount('approved'),
-    rejected: getStatusCount('rejected')
-  };
-
   return (
       <PageTransition className="pt-24 pb-20 min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
-        {/* Success Message Toast - Modern floating notification */}
+
+        {/* Success Toast */}
         <AnimatePresence>
           {showSuccessMessage && (
               <motion.div
@@ -549,14 +368,12 @@ export default function Profile() {
           )}
         </AnimatePresence>
 
-        {/* Confirmation Dialog - Modern glass modal */}
+        {/* Confirm Unregister Dialog */}
         <AnimatePresence>
           {showConfirmDialog && selectedEvent && (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     onClick={() => setShowConfirmDialog(false)}
                     className="absolute inset-0 bg-black/60 backdrop-blur-md"
                 />
@@ -568,31 +385,27 @@ export default function Profile() {
                 >
                   <h3 className="text-2xl font-bold mb-2 text-foreground">Confirm Unregistration</h3>
                   <p className="text-muted-foreground mb-6">
-                    Are you sure you want to unregister from <span className="font-semibold text-foreground">"{selectedEvent.title}"</span>?
+                    Are you sure you want to unregister from{" "}
+                    <span className="font-semibold text-foreground">"{selectedEvent.title}"</span>?
                   </p>
                   <div className="flex gap-3">
                     <button
-                        onClick={() => {
-                          setShowConfirmDialog(false);
-                          setSelectedEvent(null);
-                        }}
+                        onClick={() => { setShowConfirmDialog(false); setSelectedEvent(null); }}
                         className="flex-1 py-3 rounded-xl bg-secondary/50 text-foreground font-semibold hover:bg-secondary/80 transition-all backdrop-blur-sm border border-white/10"
                     >
                       Cancel
                     </button>
                     <button
                         onClick={handleUnregister}
-                        disabled={unregisteringId === selectedEvent.id}
+                        disabled={unregisteringId === selectedEvent.event_id}
                         className="flex-1 py-3 rounded-xl bg-gradient-to-r from-rose-500 to-red-500 text-white font-semibold hover:shadow-xl hover:shadow-rose-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {unregisteringId === selectedEvent.id ? (
+                      {unregisteringId === selectedEvent.event_id ? (
                           <span className="flex items-center justify-center gap-2">
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                        Processing...
-                      </span>
-                      ) : (
-                          "Confirm"
-                      )}
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
+                      Processing...
+                    </span>
+                      ) : "Confirm"}
                     </button>
                   </div>
                 </motion.div>
@@ -602,7 +415,8 @@ export default function Profile() {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Sidebar - Modern glass panel */}
+
+            {/* Sidebar */}
             <div className="lg:col-span-3 space-y-6">
               <motion.div
                   initial={{ opacity: 0, x: -20 }}
@@ -619,45 +433,23 @@ export default function Profile() {
                 </div>
                 <h2 className="text-2xl font-bold text-foreground mb-1">{user.name}</h2>
                 <p className="text-sm text-accent mb-4 bg-accent/10 px-4 py-1 rounded-full inline-block">{user.role}</p>
-                <div className="text-xs text-muted-foreground pb-4 border-b border-border/50">
-                  Member since {user.joinDate}
-                </div>
-
+                <div className="text-xs text-muted-foreground pb-4 border-b border-border/50">Member since {user.joinDate}</div>
                 <div className="flex flex-col gap-2 mt-4">
-                  <button
-                      onClick={() => setActiveTab("tickets")}
-                      className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-                          activeTab === "tickets"
-                              ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/30"
-                              : "text-muted-foreground hover:bg-secondary/50"
-                      }`}
-                  >
+                  <button onClick={() => setActiveTab("tickets")} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === "tickets" ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/30" : "text-muted-foreground hover:bg-secondary/50"}`}>
                     <TicketIcon className="w-5 h-5" /> My Tickets
                   </button>
-                  <button
-                      onClick={() => setActiveTab("requests")}
-                      className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-                          activeTab === "requests"
-                              ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/30"
-                              : "text-muted-foreground hover:bg-secondary/50"
-                      }`}
-                  >
+                  <button onClick={() => setActiveTab("requests")} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === "requests" ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/30" : "text-muted-foreground hover:bg-secondary/50"}`}>
                     <FileText className="w-5 h-5" /> Event Requests
                   </button>
-                  <button
-                      onClick={() => setActiveTab("settings")}
-                      className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-                          activeTab === "settings"
-                              ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/30"
-                              : "text-muted-foreground hover:bg-secondary/50"
-                      }`}
-                  >
+                  {user.role === "admin" && (
+                      <Link href="/dashboard" className="flex items-center gap-3 p-3 rounded-xl text-muted-foreground hover:bg-secondary/50 transition-all">
+                        <LayoutDashboard className="w-5 h-5" /> Dashboard
+                      </Link>
+                  )}
+                  <button onClick={() => setActiveTab("settings")} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === "settings" ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/30" : "text-muted-foreground hover:bg-secondary/50"}`}>
                     <Settings className="w-5 h-5" /> Account Settings
                   </button>
-                  <button
-                      onClick={logout}
-                      className="flex items-center gap-3 p-3 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all mt-4"
-                  >
+                  <button onClick={logout} className="flex items-center gap-3 p-3 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all mt-4">
                     <LogOut className="w-5 h-5" /> Sign Out
                   </button>
                 </div>
@@ -666,6 +458,8 @@ export default function Profile() {
 
             {/* Main Content */}
             <div className="lg:col-span-9">
+
+              {/* ── TICKETS TAB ── */}
               {activeTab === "tickets" && (
                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
                     <div className="flex justify-between items-center mb-6">
@@ -674,8 +468,8 @@ export default function Profile() {
                       </h2>
                       {registeredEvents.length > 0 && (
                           <span className="px-4 py-2 bg-accent/20 text-accent rounded-full text-sm font-medium backdrop-blur-sm border border-accent/30">
-                        {registeredEvents.length} {registeredEvents.length === 1 ? 'Event' : 'Events'}
-                      </span>
+                      {registeredEvents.length} {registeredEvents.length === 1 ? 'Event' : 'Events'}
+                    </span>
                       )}
                     </div>
 
@@ -686,30 +480,29 @@ export default function Profile() {
                         </div>
                     ) : registeredEvents.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {registeredEvents.map(event => (
+                          {registeredEvents.map((event, index) => (
                               <motion.div
-                                  key={event.registration_id || event.id}
+                                  key={event.registration_id || event.event_id || index}
                                   initial={{ opacity: 0, y: 20 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   whileHover={{ y: -4 }}
                                   className="relative group"
                               >
                                 <EventCard event={event} />
+
+                                {/* Registered badge */}
                                 <div className="absolute top-4 right-4 z-30 flex items-center gap-1 bg-gradient-to-r from-emerald-500 to-green-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm border border-white/20">
                                   <CheckCircle className="w-3 h-3" /> Registered
                                 </div>
-                                {event.track && (
-                                    <div className="absolute bottom-4 left-4 z-30 flex items-center gap-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm border border-white/20">
-                                      <Tag className="w-3 h-3" /> {event.track}
-                                    </div>
-                                )}
+
+                                {/* Unregister button */}
                                 {event.status === "Upcoming" && (
                                     <button
                                         onClick={() => confirmUnregister(event)}
-                                        disabled={unregisteringId === event.id}
+                                        disabled={unregisteringId === event.event_id}
                                         className="absolute top-4 left-4 z-30 flex items-center gap-1 bg-gradient-to-r from-rose-500 to-red-500 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-lg opacity-0 group-hover:opacity-100 transition-all hover:shadow-xl hover:shadow-rose-500/30 disabled:opacity-50"
                                     >
-                                      {unregisteringId === event.id ? (
+                                      {unregisteringId === event.event_id ? (
                                           <>
                                             <div className="h-3 w-3 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
                                             <span>Cancelling...</span>
@@ -740,6 +533,7 @@ export default function Profile() {
                   </motion.div>
               )}
 
+              {/* ── REQUESTS TAB ── */}
               {activeTab === "requests" && (
                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
                     <div className="flex justify-between items-center mb-6">
@@ -748,21 +542,13 @@ export default function Profile() {
                       </h2>
                       <button
                           onClick={() => setShowFilters(!showFilters)}
-                          className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all backdrop-blur-sm border ${
-                              showFilters
-                                  ? 'bg-gradient-to-r from-primary to-accent text-white border-white/20 shadow-lg'
-                                  : 'bg-secondary/50 text-foreground border-white/10 hover:bg-secondary/80'
-                          }`}
+                          className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all backdrop-blur-sm border ${showFilters ? 'bg-gradient-to-r from-primary to-accent text-white border-white/20 shadow-lg' : 'bg-secondary/50 text-foreground border-white/10 hover:bg-secondary/80'}`}
                       >
                         <Filter className="w-4 h-4" />
                         Filters
                       </button>
                     </div>
 
-                    {/* Statistics Cards */}
-
-
-                    {/* Status Filter Panel */}
                     <AnimatePresence>
                       {showFilters && (
                           <motion.div
@@ -781,22 +567,14 @@ export default function Profile() {
                                       <button
                                           key={filter.value}
                                           onClick={() => setStatusFilter(filter.value)}
-                                          className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 backdrop-blur-sm border ${
-                                              statusFilter === filter.value
-                                                  ? `${filter.color} text-white border-white/20 shadow-lg`
-                                                  : 'bg-secondary/50 text-foreground border-white/10 hover:bg-secondary/80'
-                                          }`}
+                                          className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 backdrop-blur-sm border ${statusFilter === filter.value ? `${filter.color} text-white border-white/20 shadow-lg` : 'bg-secondary/50 text-foreground border-white/10 hover:bg-secondary/80'}`}
                                       >
                                         <Icon className="w-4 h-4" />
                                         {filter.label}
                                         {count > 0 && (
-                                            <span className={`px-2 py-0.5 rounded-full text-xs ${
-                                                statusFilter === filter.value
-                                                    ? 'bg-white/20 text-white'
-                                                    : 'bg-background/50 text-foreground'
-                                            }`}>
-                                      {count}
-                                    </span>
+                                            <span className={`px-2 py-0.5 rounded-full text-xs ${statusFilter === filter.value ? 'bg-white/20 text-white' : 'bg-background/50 text-foreground'}`}>
+                                    {count}
+                                  </span>
                                         )}
                                       </button>
                                   );
@@ -807,12 +585,9 @@ export default function Profile() {
                       )}
                     </AnimatePresence>
 
-                    {/* Results count */}
                     <div className="mb-4 text-sm text-muted-foreground px-2">
                       Showing <span className="font-semibold text-foreground">{filteredRequests.length}</span> {filteredRequests.length === 1 ? 'request' : 'requests'}
-                      {statusFilter !== 'all' && (
-                          <span> with status <span className="font-semibold capitalize">{statusFilter}</span></span>
-                      )}
+                      {statusFilter !== 'all' && <span> with status <span className="font-semibold capitalize">{statusFilter}</span></span>}
                     </div>
 
                     {loadingRequests ? (
@@ -836,57 +611,60 @@ export default function Profile() {
                                   whileHover={{ y: -2 }}
                                   className="glass-panel rounded-2xl overflow-hidden backdrop-blur-xl border border-white/10 hover:shadow-2xl transition-all"
                               >
-                                {/* Card Header */}
+                                {/* Card Header — always visible */}
                                 <div
                                     className="p-6 cursor-pointer"
                                     onClick={() => setExpandedRequestId(expandedRequestId === request.id ? null : request.id)}
                                 >
                                   <div className="flex flex-wrap items-start justify-between gap-4">
                                     <div className="flex-1">
-                                      <div className="flex items-center gap-3 mb-2">
+                                      <div className="flex items-center gap-3 mb-1">
                                         <h3 className="text-xl font-bold text-foreground">{request.event_title}</h3>
-                                        {expandedRequestId === request.id ? (
-                                            <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                                        ) : (
-                                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                                        )}
+                                        {expandedRequestId === request.id
+                                            ? <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                                            : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
                                       </div>
+                                      {/* Submitter name */}
+                                      {request.name && (
+                                          <p className="text-sm text-muted-foreground mb-2">
+                                            Submitted by <span className="font-medium text-foreground">{request.name}</span>
+                                          </p>
+                                      )}
                                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    {formatDate(request.created_at || request.submittedAt)}
-                                  </span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {formatDate(request.created_at || request.submittedAt)}
+                                </span>
                                         <span className="flex items-center gap-1">
-                                    <Tag className="w-3 h-3" />
-                                    ID: {request.id}
-                                  </span>
+
+                                </span>
                                       </div>
                                     </div>
                                     <RequestStatusBadge status={request.status || 'new'} />
                                   </div>
 
-                                  {/* Quick Info Preview */}
+                                  {/* Summary row */}
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                                     <div className="flex items-center gap-2 text-sm">
-                                      <MapPin className="w-4 h-4 text-muted-foreground" />
-                                      <span>{request.city}</span>
+                                      <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                      <span className="truncate">{request.city || "—"}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm">
-                                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                                      <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                                       <span>{formatDate(request.event_date)}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm">
-                                      <Users className="w-4 h-4 text-muted-foreground" />
-                                      <span>{request.expected_attendees} attendees</span>
+                                      <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                      <span>{formatTime(request.event_time)}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm">
-                                      <Globe className="w-4 h-4 text-muted-foreground" />
-                                      <span className="capitalize">{request.event_type}</span>
+                                      <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                      <span className="capitalize">{request.event_type || "—"}</span>
                                     </div>
                                   </div>
                                 </div>
 
-                                {/* Expanded Details */}
+                                {/* Expanded details */}
                                 <AnimatePresence>
                                   {expandedRequestId === request.id && (
                                       <motion.div
@@ -895,61 +673,85 @@ export default function Profile() {
                                           exit={{ height: 0, opacity: 0 }}
                                           className="overflow-hidden"
                                       >
-                                        <div className="p-6 pt-0 border-t border-border/50">
+                                        <div className="p-6 pt-0 border-t border-border/50 space-y-6">
+
+                                          {/* Two-column details grid */}
                                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            {/* Left Column */}
-                                            <div className="space-y-4">
-                                              <div>
-                                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Event Details</h4>
-                                                <div className="space-y-2">
-                                                  <p className="text-sm flex items-start gap-2">
-                                                    <Target className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                                                    <span><span className="font-medium">Objective:</span> {request.objective}</span>
-                                                  </p>
-                                                  <p className="text-sm flex items-start gap-2">
-                                                    <Users className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                                                    <span><span className="font-medium">Target Audience:</span> {request.target_audience}</span>
-                                                  </p>
-                                                  <p className="text-sm flex items-start gap-2">
-                                                    <Briefcase className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                                                    <span><span className="font-medium">Category:</span> <span className="capitalize">{request.category}</span></span>
-                                                  </p>
+
+                                            {/* Left — Event details */}
+                                            <div>
+                                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Event Details</h4>
+                                              <div className="space-y-2.5">
+                                                <div className="flex items-start gap-2 text-sm">
+                                                  <Target className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                                                  <span><span className="font-medium">Objective:</span> {request.objective || "—"}</span>
+                                                </div>
+                                                <div className="flex items-start gap-2 text-sm">
+                                                  <Users className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                                                  <span><span className="font-medium">Target audience:</span> {request.target_audience || "—"}</span>
+                                                </div>
+                                                <div className="flex items-start gap-2 text-sm">
+                                                  <Users className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                                                  <span><span className="font-medium">Expected attendees:</span> {request.expected_attendees ?? "—"}</span>
+                                                </div>
+                                                <div className="flex items-start gap-2 text-sm">
+                                                  <Briefcase className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                                                  <span><span className="font-medium">Category:</span> <span className="capitalize">{request.category || "—"}</span></span>
                                                 </div>
                                               </div>
                                             </div>
 
-                                            {/* Right Column */}
-                                            <div className="space-y-4">
-                                              <div>
-                                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Venue & Logistics</h4>
-                                                <div className="space-y-2">
-                                                  <p className="text-sm">
-                                                    <span className="font-medium">Venue:</span>{' '}
-                                                    {request.venue ? (
-                                                        <span className="text-emerald-500">Has venue ✓</span>
-                                                    ) : (
-                                                        <span className="text-amber-500">No venue</span>
-                                                    )}
-                                                  </p>
-                                                  <p className="text-sm">
-                                                    <span className="font-medium">City:</span> {request.city}
-                                                  </p>
+                                            {/* Right — Venue & logistics */}
+                                            <div>
+                                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Venue & Logistics</h4>
+                                              <div className="space-y-2.5">
+                                                <div className="flex items-start gap-2 text-sm">
+                                                  <MapPin className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                                                  <span><span className="font-medium">City:</span> {request.city || "—"}</span>
+                                                </div>
+                                                <div className="flex items-start gap-2 text-sm">
+                                                  <Calendar className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                                                  <span><span className="font-medium">Date:</span> {formatDate(request.event_date)}</span>
+                                                </div>
+                                                <div className="flex items-start gap-2 text-sm">
+                                                  <Clock className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                                                  <span><span className="font-medium">Time:</span> {formatTime(request.event_time)}</span>
+                                                </div>
+                                                <div className="flex items-start gap-2 text-sm">
+                                                  <Star className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                                                  <span>
+                                          <span className="font-medium">Venue:</span>{" "}
+                                                    {request.venue
+                                                        ? <span className="text-emerald-500">Has venue ✓</span>
+                                                        : <span className="text-amber-500">No venue yet</span>}
+                                        </span>
+                                                </div>
+                                                <div className="flex items-start gap-2 text-sm">
+                                                  <Tag className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                                                  <span>
+                                          <span className="font-medium">Paid event:</span>{" "}
+                                                    {request.paid
+                                                        ? <span className="text-accent">Yes</span>
+                                                        : <span className="text-muted-foreground">Free</span>}
+                                        </span>
                                                 </div>
                                               </div>
                                             </div>
                                           </div>
 
                                           {/* Description */}
-                                          <div className="mt-4">
-                                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Description</h4>
-                                            <p className="text-sm text-muted-foreground bg-secondary/30 p-4 rounded-xl">
-                                              {request.description}
-                                            </p>
-                                          </div>
+                                          {request.description && (
+                                              <div>
+                                                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Description</h4>
+                                                <p className="text-sm text-muted-foreground bg-secondary/30 p-4 rounded-xl leading-relaxed">
+                                                  {request.description}
+                                                </p>
+                                              </div>
+                                          )}
 
                                           {/* Speakers */}
                                           {request.speaker && request.speaker.length > 0 && (
-                                              <div className="mt-4">
+                                              <div>
                                                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Speakers</h4>
                                                 <div className="flex flex-wrap gap-2">
                                                   {request.speaker.map((speaker: any, idx: number) => (
@@ -965,11 +767,23 @@ export default function Profile() {
                                                               <span className="text-xs text-muted-foreground">{speaker.position}</span>
                                                             </>
                                                         )}
+                                                        {speaker.linkedin && (
+                                                            <a
+                                                                href={speaker.linkedin}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                onClick={e => e.stopPropagation()}
+                                                                className="ml-1 text-blue-400 hover:text-blue-300 transition-colors"
+                                                            >
+                                                              <Linkedin className="w-3.5 h-3.5" />
+                                                            </a>
+                                                        )}
                                                       </div>
                                                   ))}
                                                 </div>
                                               </div>
                                           )}
+
                                         </div>
                                       </motion.div>
                                   )}
@@ -997,12 +811,11 @@ export default function Profile() {
                   </motion.div>
               )}
 
+              {/* ── SETTINGS TAB ── */}
               {activeTab === "settings" && (
                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="glass-panel p-8 rounded-3xl backdrop-blur-xl border border-white/10">
                     <div className="flex justify-between items-center mb-8">
-                      <h2 className="text-3xl font-display font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                        Account Settings
-                      </h2>
+                      <h2 className="text-3xl font-display font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Account Settings</h2>
                       <button
                           onClick={() => setIsEditing(!isEditing)}
                           className="px-4 py-2 text-sm font-semibold text-accent border border-accent/30 rounded-lg hover:bg-accent/10 transition-colors backdrop-blur-sm"
@@ -1010,76 +823,64 @@ export default function Profile() {
                         {isEditing ? "Cancel" : "Edit Profile"}
                       </button>
                     </div>
-
                     <form className="space-y-6 max-w-2xl" onSubmit={handleSave}>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <label className="block text-sm font-medium text-muted-foreground mb-2">Full Name</label>
-                          <input
-                              type="text"
-                              name="username"
-                              value={formData.username}
-                              onChange={handleChange}
-                              disabled={!isEditing}
-                              className="w-full px-4 py-3 rounded-xl bg-background/50 border border-border/50 text-foreground disabled:opacity-70 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all backdrop-blur-sm"
-                          />
+                          <input type="text" name="username" value={formData.username} onChange={handleChange} disabled={!isEditing}
+                                 className="w-full px-4 py-3 rounded-xl bg-background/50 border border-border/50 text-foreground disabled:opacity-70 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all backdrop-blur-sm" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-muted-foreground mb-2">Email Address</label>
-                          <input
-                              type="email"
-                              name="email"
-                              value={formData.email}
-                              onChange={handleChange}
-                              disabled={!isEditing}
-                              className="w-full px-4 py-3 rounded-xl bg-background/50 border border-border/50 text-foreground disabled:opacity-70 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all backdrop-blur-sm"
-                          />
+                          <input type="email" name="email" value={formData.email} onChange={handleChange} disabled={!isEditing}
+                                 className="w-full px-4 py-3 rounded-xl bg-background/50 border border-border/50 text-foreground disabled:opacity-70 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all backdrop-blur-sm" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-muted-foreground mb-2">Phone Number</label>
-                          <input
-                              type="tel"
-                              name="phone_no"
-                              value={formData.phone_no}
-                              onChange={handleChange}
-                              disabled={!isEditing}
-                              className="w-full px-4 py-3 rounded-xl bg-background/50 border border-border/50 text-foreground disabled:opacity-70 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all backdrop-blur-sm"
-                          />
+                          <input type="tel" name="phone_no" value={formData.phone_no} onChange={handleChange} disabled={!isEditing}
+                                 className="w-full px-4 py-3 rounded-xl bg-background/50 border border-border/50 text-foreground disabled:opacity-70 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all backdrop-blur-sm" />
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-muted-foreground mb-2">City</label>
-                          <input
-                              type="text"
-                              name="city"
-                              value={formData.city}
-                              onChange={handleChange}
-                              disabled={!isEditing}
-                              className="w-full px-4 py-3 rounded-xl bg-background/50 border border-border/50 text-foreground disabled:opacity-70 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all backdrop-blur-sm"
-                          />
+                          <input type="text" name="city" value={formData.city} onChange={handleChange} disabled={!isEditing}
+                                 className="w-full px-4 py-3 rounded-xl bg-background/50 border border-border/50 text-foreground disabled:opacity-70 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all backdrop-blur-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-muted-foreground mb-2">Track <span className="text-red-500">*</span></label>
+                          <div className="relative">
+                            <Target className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                            <input type="text" name="track" placeholder="e.g., Frontend Development, Data Science"
+                                   value={formData.track} onChange={handleChange} disabled={!isEditing}
+                                   className="w-full pl-11 pr-4 py-3 rounded-xl bg-background/50 border border-border/50 text-foreground disabled:opacity-70 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all backdrop-blur-sm" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-muted-foreground mb-2">LinkedIn Profile (Optional)</label>
+                          <div className="relative">
+                            <Linkedin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                            <input type="url" name="linked_profile" placeholder="https://linkedin.com/in/username"
+                                   value={formData.linked_profile} onChange={handleChange} disabled={!isEditing}
+                                   className="w-full pl-11 pr-4 py-3 rounded-xl bg-background/50 border border-border/50 text-foreground disabled:opacity-70 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all backdrop-blur-sm" />
+                          </div>
                         </div>
                       </div>
-
                       {isEditing && (
                           <div className="pt-4 flex justify-end">
-                            <button
-                                type="submit"
-                                disabled={isSaving}
-                                className="px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-xl font-semibold shadow-lg shadow-primary/20 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50"
-                            >
+                            <button type="submit" disabled={isSaving}
+                                    className="px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-xl font-semibold shadow-lg shadow-primary/20 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50">
                               {isSaving ? (
                                   <span className="flex items-center gap-2">
-                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                              Saving...
-                            </span>
-                              ) : (
-                                  "Save Changes"
-                              )}
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
+                            Saving...
+                          </span>
+                              ) : "Save Changes"}
                             </button>
                           </div>
                       )}
                     </form>
                   </motion.div>
               )}
+
             </div>
           </div>
         </div>
@@ -1089,7 +890,8 @@ export default function Profile() {
 
 function TicketIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
         <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
         <path d="M13 5v2" />
         <path d="M13 17v2" />

@@ -3,19 +3,12 @@ import { Sparkles, Twitter, Instagram, Linkedin, Github } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="bg-card border-t border-border pt-20 pb-10">
+    <footer className="bg-card border-t  border-border pt-24 pb-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-12 mb-16">
           
           <div className="md:col-span-5">
-            <Link href="/" className="flex items-center gap-2 group mb-6 inline-block">
-              <div className="flex items-center gap-2">
 
-                <span className="font-display font-bold text-2xl tracking-tight text-foreground">
-                  Voltra<span className="text-accent">.</span>
-                </span>
-              </div>
-            </Link>
             <p className="text-muted-foreground text-lg mb-8 max-w-sm leading-relaxed">
               The premium platform for discovering, managing, and experiencing extraordinary events worldwide.
             </p>

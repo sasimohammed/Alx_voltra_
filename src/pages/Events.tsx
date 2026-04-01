@@ -42,17 +42,13 @@ const transformEvent = (apiEvent: any) => ({
   time: formatTime(apiEvent.date)
 });
 
-// Category options based on your image - using lowercase values for API
+// Category options
 const CATEGORY_OPTIONS = [
-  { value: "category", label: "CATEGORY" },
-  { value: "city_team", label: "City_Team" },
-  { value: "department", label: "Department" },
-  { value: "voltra_team", label: "Voltra_Team" },
-  { value: "alumni", label: "Alumni" }
+  { value: "private", label: "Private" },
+  { value: "public", label: "Public" }
 ];
 
-// Store for user's request IDs (this will persist while component is mounted)
-// In a real app, you might want to store this in localStorage or a global state
+// Store for user's request IDs
 let userRequestIds: any[] = [];
 
 export default function Events() {
@@ -64,6 +60,7 @@ export default function Events() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [heroImage, setHeroImage] = useState<string>("");
 
   // Modal state
   const [showProposalModal, setShowProposalModal] = useState(false);
@@ -73,10 +70,10 @@ export default function Events() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, any>>({});
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
-  // Response data state (stored but not displayed)
+  // Response data state
   const [responseData, setResponseData] = useState<any>(null);
 
-  // Form state for event proposal - using "speaker" as field name (API expects this)
+  // ✅ Form state with event_time added
   const [proposalForm, setProposalForm] = useState({
     name: "",
     category: "",
@@ -87,21 +84,70 @@ export default function Events() {
     target_audience: "",
     expected_attendees: "",
     event_date: "",
+    event_time: "",   // ✅ NEW FIELD
     city: "",
     venue: "false",
-    speaker: [] as { name: string; position: string; image: string }[] // Using "speaker" not "event_speaker"
+    paid: false,
+    speaker: [] as { name: string; position: string; linked_profile: string }[]
   });
+
+  // Load hero image from gallery folder
+  useEffect(() => {
+    const loadHeroImage = async () => {
+      const imageNames = ['image1', 'image2', 'image3', 'hero', 'banner', 'event-banner'];
+      const extensions = ['.jpeg', '.jpg', '.png', '.webp'];
+
+      for (const name of imageNames) {
+        for (const ext of extensions) {
+          const imagePath = `/gallery/${name}${ext}`;
+          try {
+            const img = new Image();
+            const imageExists = await new Promise((resolve) => {
+              img.onload = () => resolve(true);
+              img.onerror = () => resolve(false);
+              img.src = imagePath;
+            });
+
+            if (imageExists) {
+              console.log(`✅ Found hero image: ${imagePath}`);
+              setHeroImage(imagePath);
+              return;
+            }
+          } catch (error) {
+            console.log(`❌ Image not found: ${imagePath}`);
+          }
+        }
+      }
+
+      console.log("⚠️ No gallery images found, using fallback image");
+      setHeroImage("https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop");
+    };
+
+    loadHeroImage();
+  }, []);
 
   // Fetch both upcoming and past events from Node.js API
   useEffect(() => {
     const fetchAllEvents = async () => {
       try {
+        if (!token?.access) return;
+
         setLoading(true);
 
-        const upcomingRes = await fetch(`${NODE_API_URL}/api/events/upcoming/`);
+        const upcomingRes = await fetch(`${NODE_API_URL}/api/events/upcoming/`, {
+          headers: {
+            'Authorization': `Bearer ${token.access}`,
+            'Accept': 'application/json',
+          },
+        });
         const upcomingData = await upcomingRes.json();
 
-        const pastRes = await fetch(`${NODE_API_URL}/api/events/past/`);
+        const pastRes = await fetch(`${NODE_API_URL}/api/events/past/`, {
+          headers: {
+            'Authorization': `Bearer ${token.access}`,
+            'Accept': 'application/json',
+          },
+        });
         const pastData = await pastRes.json();
 
         const allEvents = [
@@ -109,12 +155,12 @@ export default function Events() {
           ...(pastData.data || []).map((e: any) => ({ ...e, is_finished: true }))
         ];
 
-        console.log(" All events:", allEvents);
+        console.log("All events:", allEvents);
 
         const transformedEvents = allEvents.map(transformEvent);
         setEvents(transformedEvents);
       } catch (err) {
-        console.error(" Error fetching events:", err);
+        console.error("Error fetching events:", err);
         setError(err instanceof Error ? err.message : 'Failed to load events');
       } finally {
         setLoading(false);
@@ -126,9 +172,9 @@ export default function Events() {
 
   // Handle proposal form input changes
   const handleProposalChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setProposalForm(prev => ({ ...prev, [name]: value }));
-    // Clear field error when user starts typing
+    const { name, value, type } = e.target;
+    const newValue = type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
+    setProposalForm(prev => ({ ...prev, [name]: newValue }));
     if (fieldErrors[name]) {
       setFieldErrors(prev => {
         const newErrors = { ...prev };
@@ -138,11 +184,11 @@ export default function Events() {
     }
   };
 
-  // Handle speaker array changes - using "speaker" field
+  // Handle speaker array changes
   const addSpeaker = () => {
     setProposalForm(prev => ({
       ...prev,
-      speaker: [...prev.speaker, { name: "", position: "", image: "" }]
+      speaker: [...prev.speaker, { name: "", position: "", linked_profile: "" }]
     }));
   };
 
@@ -173,7 +219,6 @@ export default function Events() {
     setFieldErrors({});
 
     try {
-      // Ensure at least one speaker with name
       const validSpeakers = proposalForm.speaker.filter(s => s.name.trim() !== "");
 
       if (validSpeakers.length === 0) {
@@ -182,7 +227,7 @@ export default function Events() {
         return;
       }
 
-      // Prepare payload with correct field names - API expects "speaker" field
+      // ✅ Payload includes event_time
       const payload = {
         name: proposalForm.name.trim(),
         category: proposalForm.category,
@@ -193,8 +238,10 @@ export default function Events() {
         target_audience: proposalForm.target_audience.trim(),
         expected_attendees: parseInt(proposalForm.expected_attendees) || 0,
         event_date: proposalForm.event_date,
+        event_time: proposalForm.event_time,   // ✅ SENT TO API
         city: proposalForm.city.trim(),
         venue: proposalForm.venue === "true",
+        paid: proposalForm.paid,
         speaker: validSpeakers
       };
 
@@ -219,15 +266,11 @@ export default function Events() {
         const responseData = responseText ? JSON.parse(responseText) : {};
         console.log("✅ Success - Response data:", responseData);
 
-        // Store the response data in localStorage
         try {
-          // Get existing requests from localStorage
           const existingRequests = JSON.parse(localStorage.getItem('userEventRequests') || '[]');
-          console.log("Existing requests in localStorage:", existingRequests);
 
-          // Create new request object - NOTE: API returns { id: 3 } not eventrequest_id
           const newRequest = {
-            id: responseData.id, // This is the important part - using 'id' not 'eventrequest_id'
+            id: responseData.id,
             event_title: payload.event_title,
             category: payload.category,
             event_type: payload.event_type,
@@ -240,22 +283,13 @@ export default function Events() {
             speaker: payload.speaker,
             name: payload.name,
             event_date: payload.event_date,
+            event_time: payload.event_time,   // ✅ SAVED TO LOCALSTORAGE
             submittedAt: new Date().toISOString(),
-            status: 'pending' // Default status
+            status: 'pending'
           };
 
-          console.log("📦 Saving new request to localStorage:", newRequest);
-
           existingRequests.push(newRequest);
-
-          // Save back to localStorage
           localStorage.setItem('userEventRequests', JSON.stringify(existingRequests));
-          console.log("✅ Updated localStorage. Total requests:", existingRequests.length);
-
-          // Verify it was saved
-          const saved = localStorage.getItem('userEventRequests');
-          console.log("🔍 Verification - localStorage now contains:", JSON.parse(saved || '[]'));
-
         } catch (e) {
           console.error("❌ Error saving to localStorage:", e);
         }
@@ -268,6 +302,7 @@ export default function Events() {
           setShowSuccessToast(false);
         }, 5000);
 
+        // ✅ Reset includes event_time
         setProposalForm({
           name: "",
           category: "",
@@ -278,8 +313,10 @@ export default function Events() {
           target_audience: "",
           expected_attendees: "",
           event_date: "",
+          event_time: "",   // ✅ RESET
           city: "",
           venue: "false",
+          paid: false,
           speaker: []
         });
 
@@ -380,7 +417,6 @@ export default function Events() {
                   className="fixed top-24 left-1/2 z-50 w-full max-w-md"
               >
                 <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl shadow-2xl p-6 mx-4 relative overflow-hidden">
-                  {/* Confetti effect background */}
                   <div className="absolute inset-0 opacity-10">
                     <div className="absolute top-0 left-1/4 w-2 h-2 bg-white rounded-full animate-ping" style={{ animationDelay: "0.1s" }} />
                     <div className="absolute top-1/3 right-1/4 w-3 h-3 bg-yellow-300 rounded-full animate-ping" style={{ animationDelay: "0.3s" }} />
@@ -409,7 +445,6 @@ export default function Events() {
                     </button>
                   </div>
 
-                  {/* Progress bar */}
                   <motion.div
                       initial={{ width: "100%" }}
                       animate={{ width: "0%" }}
@@ -422,13 +457,30 @@ export default function Events() {
         </AnimatePresence>
 
         {/* Hero Banner */}
-        <div className="w-full bg-gradient-to-r from-primary via-[#2a0e82] to-accent text-white py-20 mb-12 relative overflow-hidden">
+        <div className="w-full relative py-20 mb-12 overflow-hidden">
+          <div
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{
+                backgroundImage: heroImage ? `url(${heroImage})` : 'none',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-black/70" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/40" />
+          </div>
+
+          {!heroImage && (
+              <div className="absolute inset-0 bg-gradient-to-r from-primary via-[#2a0e82] to-accent" />
+          )}
+
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay" />
+
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
             <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-5xl md:text-6xl font-display font-extrabold mb-6"
+                className="text-5xl md:text-6xl font-display font-extrabold mb-6 text-white"
             >
               Discover Events
             </motion.h1>
@@ -436,19 +488,18 @@ export default function Events() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-xl text-white/80 max-w-2xl mx-auto font-medium"
+                className="text-xl text-white/90 max-w-2xl mx-auto font-medium"
             >
               Find and secure your spot at the most exclusive experiences happening globally.
             </motion.p>
 
-            {/* Request Event Button */}
             <motion.button
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
                 onClick={() => {
                   setShowProposalModal(true);
-                  setResponseData(null); // Clear previous response
+                  setResponseData(null);
                 }}
                 className="mt-8 px-8 py-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl font-bold text-white flex items-center gap-2 mx-auto transition-all border border-white/20"
             >
@@ -501,9 +552,7 @@ export default function Events() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-medium text-muted-foreground mb-2">
-                          Start Date
-                        </label>
+                        <label className="block text-sm font-medium text-muted-foreground mb-2">Start Date</label>
                         <input
                             type="date"
                             value={startDate}
@@ -511,11 +560,8 @@ export default function Events() {
                             className="w-full p-3 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
                         />
                       </div>
-
                       <div>
-                        <label className="block text-sm font-medium text-muted-foreground mb-2">
-                          End Date
-                        </label>
+                        <label className="block text-sm font-medium text-muted-foreground mb-2">End Date</label>
                         <input
                             type="date"
                             value={endDate}
@@ -545,14 +591,12 @@ export default function Events() {
 
           {/* Results Info */}
           <div className="mb-8 flex flex-wrap gap-4 justify-between items-center text-muted-foreground font-medium">
-          <span className="bg-secondary px-4 py-2 rounded-full">
-            Showing <strong className="text-foreground">{filteredEvents.length}</strong> events
-            {(startDate || endDate) && (
-                <span className="ml-2 text-accent">
-                (filtered by date)
-              </span>
-            )}
-          </span>
+            <span className="bg-secondary px-4 py-2 rounded-full">
+              Showing <strong className="text-foreground">{filteredEvents.length}</strong> events
+              {(startDate || endDate) && (
+                  <span className="ml-2 text-accent">(filtered by date)</span>
+              )}
+            </span>
             {(startDate || endDate || search) && (
                 <button
                     onClick={() => {
@@ -638,7 +682,7 @@ export default function Events() {
                     <button
                         onClick={() => {
                           setShowProposalModal(false);
-                          setResponseData(null); // Clear response when closing
+                          setResponseData(null);
                         }}
                         className="p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
                     >
@@ -816,19 +860,36 @@ export default function Events() {
                           />
                         </div>
 
-                        {/* Event Date */}
-                        <div>
-                          <label className="block text-sm font-medium text-muted-foreground mb-1">
-                            Event Date <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                              type="date"
-                              name="event_date"
-                              value={proposalForm.event_date}
-                              onChange={handleProposalChange}
-                              required
-                              className="w-full px-4 py-2 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                          />
+                        {/* Event Date & Time — side by side */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-muted-foreground mb-1">
+                              Event Date <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="date"
+                                name="event_date"
+                                value={proposalForm.event_date}
+                                onChange={handleProposalChange}
+                                required
+                                className="w-full px-4 py-2 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                            />
+                          </div>
+
+                          {/* ✅ Event Time field */}
+                          <div>
+                            <label className="block text-sm font-medium text-muted-foreground mb-1">
+                              Event Time <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="time"
+                                name="event_time"
+                                value={proposalForm.event_time}
+                                onChange={handleProposalChange}
+                                required
+                                className="w-full px-4 py-2 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                            />
+                          </div>
                         </div>
 
                         {/* City */}
@@ -871,7 +932,22 @@ export default function Events() {
                           )}
                         </div>
 
-                        {/* Speakers - Using "speaker" field name */}
+                        {/* Paid */}
+                        <div className="flex items-center gap-3">
+                          <input
+                              type="checkbox"
+                              id="paid"
+                              name="paid"
+                              checked={proposalForm.paid}
+                              onChange={handleProposalChange}
+                              className="w-5 h-5 rounded border-border accent-primary cursor-pointer"
+                          />
+                          <label htmlFor="paid" className="text-sm font-medium text-muted-foreground cursor-pointer select-none">
+                            Paid Event
+                          </label>
+                        </div>
+
+                        {/* Speakers */}
                         <div>
                           <label className="block text-sm font-medium text-muted-foreground mb-1">
                             Speakers <span className="text-red-500">*</span>
@@ -906,11 +982,11 @@ export default function Events() {
                                     placeholder="Position (e.g., CEO, Professor)"
                                 />
                                 <input
-                                    type="text"
-                                    value={speaker.image}
-                                    onChange={(e) => updateSpeaker(index, "image", e.target.value)}
+                                    type="url"
+                                    value={speaker.linked_profile}
+                                    onChange={(e) => updateSpeaker(index, "linked_profile", e.target.value)}
                                     className="w-full px-4 py-2 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                    placeholder="Image URL (optional)"
+                                    placeholder="LinkedIn URL (e.g., https://linkedin.com/in/username)"
                                 />
                               </div>
                           ))}

@@ -25,6 +25,7 @@ export default function Login() {
           "Content-Type": "application/json",
         },
       });
+      console.log({token});
 
       if (!response.ok) {
         throw new Error("Failed to fetch account details");

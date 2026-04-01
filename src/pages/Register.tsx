@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Sparkles, Mail, Lock, User, MapPin, ArrowRight, CheckCircle, X, Eye, EyeOff } from "lucide-react";
+import { Sparkles, Mail, Lock, User, MapPin, ArrowRight, CheckCircle, X, Eye, EyeOff, Linkedin, Target } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { useForm } from "react-hook-form";
 
@@ -10,7 +10,9 @@ type FormData = {
     password: string;
     city: string;
     phone_no: string;
-    user_status: "guest" | "alumni" | "learner";
+    user_status: "guest" | "alumni" | "learner" | "city_team" | "voltra_team";
+    track: string;
+    linked_profile?: string;
 };
 
 export default function Register() {
@@ -137,11 +139,11 @@ export default function Register() {
                                     <input
                                         type="text"
                                         placeholder="John Doe"
-                                        {...register("fullName", { required: true })}
+                                        {...register("fullName", { required: "Full name is required" })}
                                         className="w-full pl-11 pr-4 py-3 rounded-xl bg-background/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                                     />
                                 </div>
-                                {errors.fullName && <span className="text-red-500 text-sm">Full Name is required</span>}
+                                {errors.fullName && <span className="text-red-500 text-sm">{errors.fullName.message}</span>}
                             </div>
 
                             <div>
@@ -151,11 +153,11 @@ export default function Register() {
                                     <input
                                         type="text"
                                         placeholder="New York"
-                                        {...register("city", { required: true })}
+                                        {...register("city", { required: "City is required" })}
                                         className="w-full pl-11 pr-4 py-3 rounded-xl bg-background/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                                     />
                                 </div>
-                                {errors.city && <span className="text-red-500 text-sm">City is required</span>}
+                                {errors.city && <span className="text-red-500 text-sm">{errors.city.message}</span>}
                             </div>
                         </div>
 
@@ -166,11 +168,17 @@ export default function Register() {
                                 <input
                                     type="email"
                                     placeholder="name@example.com"
-                                    {...register("email", { required: true })}
+                                    {...register("email", {
+                                        required: "Email is required",
+                                        pattern: {
+                                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                                            message: "Invalid email address"
+                                        }
+                                    })}
                                     className="w-full pl-11 pr-4 py-3 rounded-xl bg-background/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                                 />
                             </div>
-                            {errors.email && <span className="text-red-500 text-sm">Email is required</span>}
+                            {errors.email && <span className="text-red-500 text-sm">{errors.email.message}</span>}
                         </div>
 
                         <div>
@@ -180,7 +188,13 @@ export default function Register() {
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     placeholder="Create a strong password"
-                                    {...register("password", { required: true })}
+                                    {...register("password", {
+                                        required: "Password is required",
+                                        minLength: {
+                                            value: 8,
+                                            message: "Password must be at least 8 characters"
+                                        }
+                                    })}
                                     className="w-full pl-11 pr-12 py-3 rounded-xl bg-background/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                                 />
                                 <button
@@ -191,34 +205,93 @@ export default function Register() {
                                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
                             </div>
-                            {errors.password && <span className="text-red-500 text-sm">Password is required</span>}
+                            {errors.password && <span className="text-red-500 text-sm">{errors.password.message}</span>}
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-muted-foreground mb-2">Phone Number</label>
                             <div className="relative">
                                 <input
-                                    type="text"
+                                    type="tel"
                                     placeholder="+201234567890"
-                                    {...register("phone_no", { required: true })}
+                                    {...register("phone_no", {
+                                        required: "Phone number is required",
+                                        pattern: {
+                                            value: /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,3}[)]?[-\s\.]?[0-9]{3,4}[-\s\.]?[0-9]{3,4}$/,
+                                            message: "Invalid phone number"
+                                        }
+                                    })}
                                     className="w-full pl-4 pr-4 py-3 rounded-xl bg-background/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                                 />
                             </div>
-                            {errors.phone_no && <span className="text-red-500 text-sm">Phone number is required</span>}
+                            {errors.phone_no && <span className="text-red-500 text-sm">{errors.phone_no.message}</span>}
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-muted-foreground mb-2">User Status</label>
                             <select
-                                {...register("user_status", { required: true })}
+                                {...register("user_status", { required: "User status is required" })}
                                 className="w-full pl-4 pr-4 py-3 rounded-xl bg-background/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                             >
                                 <option value="">Select Status</option>
                                 <option value="guest">Guest</option>
                                 <option value="alumni">Alumni</option>
                                 <option value="learner">Learner</option>
+                                <option value="city_team">City Team</option>
+                                <option value="voltra_team">Voltra Team</option>
                             </select>
-                            {errors.user_status && <span className="text-red-500 text-sm">User status is required</span>}
+                            {errors.user_status && <span className="text-red-500 text-sm">{errors.user_status.message}</span>}
+                        </div>
+
+                        {/* Track Field - Required - Now as Text Input */}
+                        <div>
+                            <label className="block text-sm font-medium text-muted-foreground mb-2">
+                                Track <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                                <Target className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                                <input
+                                    type="text"
+                                    placeholder="e.g., Frontend Development, Data Science, UI/UX Design"
+                                    {...register("track", {
+                                        required: "Track is required",
+                                        minLength: {
+                                            value: 2,
+                                            message: "Track must be at least 2 characters"
+                                        }
+                                    })}
+                                    className="w-full pl-11 pr-4 py-3 rounded-xl bg-background/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                                />
+                            </div>
+                            {errors.track && <span className="text-red-500 text-sm">{errors.track.message}</span>}
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Enter your learning or professional track (e.g., Frontend, Backend, Data Science, etc.)
+                            </p>
+                        </div>
+
+                        {/* Linked Profile Field - Optional */}
+                        <div>
+                            <label className="block text-sm font-medium text-muted-foreground mb-2">
+                                LinkedIn Profile (Optional)
+                            </label>
+                            <div className="relative">
+                                <Linkedin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                                <input
+                                    type="url"
+                                    placeholder="https://linkedin.com/in/username"
+                                    {...register("linked_profile", {
+                                        pattern: {
+                                            value: /^(https?:\/\/)?(www\.)?linkedin\.com\/(in|company|school)\/.+$/i,
+                                            message: "Please enter a valid LinkedIn profile URL"
+                                        }
+                                    })}
+                                    className="w-full pl-11 pr-4 py-3 rounded-xl bg-background/50 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
+                                />
+                            </div>
+                            {errors.linked_profile && <span className="text-red-500 text-sm">{errors.linked_profile.message}</span>}
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Add your LinkedIn profile to connect with professionals
+                            </p>
                         </div>
 
                         <div className="pt-2">

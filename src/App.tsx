@@ -13,8 +13,7 @@ import Profile from "@/pages/Profile";
 import Dashboard from "@/pages/dashboard.tsx"; // Import the Dashboard page
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
-import ForgotPassword from "@/pages/ForgotPassword";
-import ResetPassword from "@/pages/ResetPasswordt";
+
 import { UserProvider } from "@/usercontext";
 
 function NotFound() {
@@ -45,8 +44,6 @@ function AnimatedRouter() {
                 <Route path="/dashboard" component={Dashboard} /> {/* Add dashboard route */}
                 <Route path="/login" component={Login} />
                 <Route path="/register" component={Register} />
-                <Route path="/forgot-password" component={ForgotPassword} />
-                <Route path="/reset-password" component={ResetPassword} />
                 <Route component={NotFound} />
             </Switch>
         </AnimatePresence>
