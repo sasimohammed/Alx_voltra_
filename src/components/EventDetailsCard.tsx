@@ -71,27 +71,71 @@ const formatEventDate = (dateString: string) => {
 };
 
 // Transform API event data
-const transformEvent = (apiEvent: any): EventDetails => ({
-    id: apiEvent.event_id || apiEvent.id,
-    title: apiEvent.title || "Untitled Event",
-    date: apiEvent.date || new Date().toISOString().split('T')[0],
-    city: apiEvent.city || "Unknown City",
-    description: apiEvent.description || "",
-    type: apiEvent.type || "unknown",
-    category: apiEvent.category || "General",
-    image: apiEvent.photos && apiEvent.photos.length > 0
-        ? apiEvent.photos[0]
-        : "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop",
-    status: apiEvent.is_finished ? "Past" : "Upcoming",
-    speakers: apiEvent.event_speakers || apiEvent.speakers || [],
-    attendees: apiEvent.num_attendees || 0,
-    time: formatTime(apiEvent.date),
-    is_finished: apiEvent.is_finished,
-    venue: apiEvent.venue,
-    target_audience: apiEvent.target_audience,
-    photos: apiEvent.photos || []
-});
+// Update the transformEvent function in EventDetailsCard
+const transformEvent = (apiEvent: any): EventDetails => {
+    // Helper to format time correctly
+    const formatTimeForDisplay = (timeStr: string, dateStr: string) => {
+        // If API has a time field, use that first
+        if (timeStr && timeStr !== "") {
+            // If it's already in "2:30 PM" format
+            if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(timeStr)) {
+                return timeStr;
+            }
+            // If it's in "14:30" 24-hour format
+            if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+                const [hours, minutes] = timeStr.split(':');
+                const hour = parseInt(hours, 10);
+                const period = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 || 12;
+                return `${hour12}:${minutes} ${period}`;
+            }
+            // If it's in "14:30:00" format with seconds
+            if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/)) {
+                const [hours, minutes] = timeStr.split(':');
+                const hour = parseInt(hours, 10);
+                const period = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 || 12;
+                return `${hour12}:${minutes} ${period}`;
+            }
+            return timeStr;
+        }
 
+        // Fallback: try to extract from date
+        if (dateStr) {
+            try {
+                return new Date(dateStr).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            } catch {
+                return "7:00 PM";
+            }
+        }
+        return "7:00 PM";
+    };
+
+    return {
+        id: apiEvent.event_id || apiEvent.id,
+        title: apiEvent.title || "Untitled Event",
+        date: apiEvent.date || new Date().toISOString().split('T')[0],
+        city: apiEvent.city || "Unknown City",
+        description: apiEvent.description || "",
+        type: apiEvent.type || "unknown",
+        category: apiEvent.category || "General",
+        image: apiEvent.photos && apiEvent.photos.length > 0
+            ? apiEvent.photos[0]
+            : "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop",
+        status: apiEvent.is_finished ? "Past" : "Upcoming",
+        speakers: apiEvent.event_speakers || apiEvent.speakers || [],
+        attendees: apiEvent.num_attendees || 0,
+        time: formatTimeForDisplay(apiEvent.time, apiEvent.date), // Use apiEvent.time if available
+        is_finished: apiEvent.is_finished,
+        venue: apiEvent.venue,
+        target_audience: apiEvent.target_audience,
+        photos: apiEvent.photos || []
+    };
+};
 export default function EventDetailsCard({ eventId, token, isOpen, onClose }: EventDetailsCardProps) {
     const [event, setEvent] = useState<EventDetails | null>(null);
     const [loading, setLoading] = useState(false);

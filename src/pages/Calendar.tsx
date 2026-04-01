@@ -130,7 +130,7 @@ export default function CalendarView() {
 
     if (error) {
         return (
-            <PageTransition className="pt-20 sm:pt-24 pb-20 min-h-screen">
+            <PageTransition className="pt-20 sm:pt-30 pb-20 min-h-screen">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-center min-h-[60vh]">
                         <div className="text-center">
@@ -150,7 +150,7 @@ export default function CalendarView() {
     }
 
     return (
-        <PageTransition className="pt-20 sm:pt-24 pb-20 min-h-screen bg-background">
+        <PageTransition className="pt-20 sm:pt-30 pb-20 min-h-screen bg-background">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="mb-6 sm:mb-10 text-center">
                     <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-2 sm:mb-4 text-foreground">Event Calendar</h1>

@@ -44,6 +44,7 @@ const RequestStatusBadge = ({ status }: { status: string }) => {
   );
 };
 
+
 const STATUS_FILTERS = [
   { value: 'all', label: 'All Requests', color: 'bg-gray-500', icon: FileText },
   { value: 'new', label: 'New', color: 'bg-purple-500', icon: Sparkles },
@@ -349,7 +350,7 @@ export default function Profile() {
   };
 
   return (
-      <PageTransition className="pt-24 pb-20 min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
+      <PageTransition className="pt-30 pb-20 min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
 
         {/* Success Toast */}
         <AnimatePresence>
@@ -433,7 +434,6 @@ export default function Profile() {
                 </div>
                 <h2 className="text-2xl font-bold text-foreground mb-1">{user.name}</h2>
                 <p className="text-sm text-accent mb-4 bg-accent/10 px-4 py-1 rounded-full inline-block">{user.role}</p>
-                <div className="text-xs text-muted-foreground pb-4 border-b border-border/50">Member since {user.joinDate}</div>
                 <div className="flex flex-col gap-2 mt-4">
                   <button onClick={() => setActiveTab("tickets")} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${activeTab === "tickets" ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/30" : "text-muted-foreground hover:bg-secondary/50"}`}>
                     <TicketIcon className="w-5 h-5" /> My Tickets

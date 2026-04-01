@@ -191,7 +191,7 @@ export default function EventDetails() {
   }
 
   return (
-      <PageTransition className="pt-20 pb-24 bg-background">
+      <PageTransition className="pt-30 pb-24 bg-background">
         {/* Registration Modal */}
         {showRegistrationModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">

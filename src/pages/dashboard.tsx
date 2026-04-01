@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-    Shield, Users, Calendar, Settings, BarChart, Plus, X, Check,
-    MapPin, Clock, Target, Image as ImageIcon, Upload, Trash2,
+    Users, Calendar, Clock, Target, Plus, X, Check,
+    MapPin, Image as ImageIcon, Upload, Trash2,
     Edit, Trash, Eye, Search, RefreshCw, FileText, Sparkles,
-    Award, XCircle, ChevronDown,
-    Tag
+    Award, XCircle, ChevronDown, Tag
 } from "lucide-react";
 import { PageTransition } from "@/components/PageTransition";
 import { useUser } from "@/usercontext";
@@ -13,94 +12,145 @@ import { useLocation } from "wouter";
 import EventDetailsCard from "@/components/EventDetailsCard";
 import RequestDetailsCard from "@/components/RequestDetailsCard";
 
-// API URLs
 const NODE_API_URL = 'https://node-core-1qx9.vercel.app';
 const DJANGO_API_URL = 'https://django-kf3s.vercel.app';
 
-// Status filter configuration
 const STATUS_FILTERS = [
-    { value: 'all', label: 'All Requests', color: 'bg-gray-500', icon: FileText },
+    { value: 'all', label: 'All', color: 'bg-gray-500', icon: FileText },
     { value: 'new', label: 'New', color: 'bg-purple-500', icon: Sparkles },
     { value: 'reviewing', label: 'Reviewing', color: 'bg-blue-500', icon: Eye },
     { value: 'approved', label: 'Approved', color: 'bg-emerald-500', icon: Award },
     { value: 'rejected', label: 'Rejected', color: 'bg-rose-500', icon: XCircle }
 ];
 
-// Category options - Updated to only Private and Public
 const CATEGORY_OPTIONS = [
     { value: "private", label: "Private" },
     { value: "public", label: "Public" }
 ];
 
-// Event type options
 const EVENT_TYPE_OPTIONS = [
     { value: "online", label: "Online" },
     { value: "offline", label: "Offline" },
     { value: "hybrid", label: "Hybrid" }
 ];
 
-// Transform request
-const transformRequest = (apiRequest: any) => {
-    return {
-        id: apiRequest.eventrequest_id,
-        eventrequest_id: apiRequest.eventrequest_id,
-        name: apiRequest.name || "Unknown",
-        description: apiRequest.description || "",
-        objective: apiRequest.objective || "",
-        category: apiRequest.category || "General",
-        event_type: apiRequest.event_type,
-        target_audience: apiRequest.target_audience || "",
-        expected_attendees: apiRequest.expected_attendees || 0,
-        event_date: apiRequest.event_date,
-        city: apiRequest.city || "Unknown City",
-        status: apiRequest.status?.toLowerCase() || "new",
-        venue: apiRequest.venue || false,
-        speaker: apiRequest.speaker || []
-    };
-};
+const transformRequest = (apiRequest: any) => ({
+    id: apiRequest.eventrequest_id,
+    eventrequest_id: apiRequest.eventrequest_id,
+    name: apiRequest.name || "Unknown",
+    description: apiRequest.description || "",
+    objective: apiRequest.objective || "",
+    category: apiRequest.category || "General",
+    event_type: apiRequest.event_type,
+    target_audience: apiRequest.target_audience || "",
+    expected_attendees: apiRequest.expected_attendees || 0,
+    event_date: apiRequest.event_date,
+    city: apiRequest.city || "Unknown City",
+    status: apiRequest.status?.toLowerCase() || "new",
+    venue: apiRequest.venue || false,
+    speaker: apiRequest.speaker || []
+});
 
-// Format time helper
 const formatTime = (dateString: string) => {
     try {
         return new Date(dateString).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true
+            hour: '2-digit', minute: '2-digit', hour12: true
         });
-    } catch {
-        return "7:00 PM";
-    }
+    } catch { return "7:00 PM"; }
 };
 
-// Transform event with paid field and updated speaker structure
-const transformEvent = (apiEvent: any) => ({
-    id: apiEvent.event_id,
-    title: apiEvent.title || "Untitled Event",
-    date: apiEvent.date || new Date().toISOString().split('T')[0],
-    city: apiEvent.city || "Unknown City",
-    description: apiEvent.description || "",
-    type: apiEvent.type || "unknown",
-    mode: apiEvent.type === "online" ? "Online" : "Offline",
-    category: apiEvent.category || "public",
-    image: apiEvent.photos && apiEvent.photos.length > 0
-        ? apiEvent.photos[0]
-        : "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop",
-    status: apiEvent.is_finished ? "Past" : "Upcoming",
-    speakers: apiEvent.event_speakers || [],
-    attendees: apiEvent.num_attendees || 0,
-    time: apiEvent.time || formatTime(apiEvent.date),
-    is_finished: apiEvent.is_finished,
-    venue: apiEvent.venue,
-    target_audience: apiEvent.target_audience,
-    photos: apiEvent.photos || [],
-    paid: apiEvent.paid || false
-});
+const transformEvent = (apiEvent: any) => {
+    const formatTimeForDisplay = (timeStr: string, dateStr: string) => {
+        if (timeStr && timeStr !== "") {
+            // If time is already in "H:MM AM/PM" format
+            if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(timeStr)) {
+                return timeStr;
+            }
+            // If time is in "HH:MM" 24-hour format
+            if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+                const [hours, minutes] = timeStr.split(':');
+                const hour = parseInt(hours, 10);
+                const period = hour >= 12 ? 'PM' : 'AM';
+                const hour12 = hour % 12 || 12;
+                return `${hour12}:${minutes} ${period}`;
+            }
+            return timeStr;
+        }
+
+        // If no time provided, try to extract from date
+        if (dateStr) {
+            try {
+                return new Date(dateStr).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            } catch {
+                return "7:00 PM";
+            }
+        }
+        return "7:00 PM";
+    };
+
+    return {
+        id: apiEvent.event_id,
+        title: apiEvent.title || "Untitled Event",
+        date: apiEvent.date || new Date().toISOString().split('T')[0],
+        city: apiEvent.city || "Unknown City",
+        description: apiEvent.description || "",
+        type: apiEvent.type || "unknown",
+        mode: apiEvent.type === "online" ? "Online" : "Offline",
+        category: apiEvent.category || "public",
+        image: apiEvent.photos?.length > 0
+            ? apiEvent.photos[0]
+            : "https://images.unsplash.com/photo-1540575467063-178a50c2df87?q=80&w=2070&auto=format&fit=crop",
+        status: apiEvent.is_finished ? "Past" : "Upcoming",
+        speakers: apiEvent.event_speakers || [],
+        attendees: apiEvent.num_attendees || 0,
+        time: formatTimeForDisplay(apiEvent.time, apiEvent.date),
+        is_finished: apiEvent.is_finished,
+        venue: apiEvent.venue,
+        target_audience: apiEvent.target_audience,
+        photos: apiEvent.photos || [],
+        paid: apiEvent.paid || false
+    };
+};
+const formatTimeForAPI = (timeStr: string) => {
+    if (!timeStr) return "";
+    if (/^\d{1,2}:\d{2}\s?(AM|PM)$/i.test(timeStr)) return timeStr;
+    try {
+        if (timeStr.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+            const [hours, minutes] = timeStr.split(':');
+            const hour = parseInt(hours, 10);
+            const period = hour >= 12 ? 'PM' : 'AM';
+            const hour12 = hour % 12 || 12;
+            return `${hour12}:${minutes} ${period}`;
+        }
+        if (timeStr.includes('T') || timeStr.includes('Z')) {
+            const date = new Date(timeStr);
+            let hours = date.getHours();
+            const minutes = date.getMinutes();
+            const period = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12 || 12;
+            return `${hours}:${minutes.toString().padStart(2, '0')} ${period}`;
+        }
+        return timeStr;
+    } catch { return timeStr; }
+};
+
+const EMPTY_FORM = {
+    title: "", date: "", time: "", city: "", description: "",
+    type: "", target_audience: "", category: "", venue: "false",
+    is_finished: "false", paid: "false",
+    event_speakers: [] as { name: string; position: string; linked_profile: string }[],
+    photos: [] as File[],
+    existingPhotos: [] as string[]
+};
 
 export default function Dashboard() {
     const { user, token } = useUser();
     const [, setLocation] = useLocation();
 
-    // Events state
     const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
     const [pastEvents, setPastEvents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -108,22 +158,16 @@ export default function Dashboard() {
     const [selectedEvent, setSelectedEvent] = useState<any>(null);
     const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
 
-    // User Requests state
     const [userRequests, setUserRequests] = useState<any[]>([]);
     const [loadingRequests, setLoadingRequests] = useState(false);
     const [requestsError, setRequestsError] = useState<string | null>(null);
-    const [selectedRequest, setSelectedRequest] = useState<any>(null);
     const [selectedRequestId, setSelectedRequestId] = useState<string | number | null>(null);
-    const [showRequestModal, setShowRequestModal] = useState(false);
     const [statusFilter, setStatusFilter] = useState('all');
     const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-    // Search and filter
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all');
-    const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
-    // Modal states
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -132,169 +176,65 @@ export default function Dashboard() {
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, any>>({});
+    const [eventForm, setEventForm] = useState({ ...EMPTY_FORM });
 
-    // Form state for creating/editing event - Updated speakers structure
-    const [eventForm, setEventForm] = useState({
-        title: "",
-        date: "",
-        time: "",
-        city: "",
-        description: "",
-        type: "",
-        target_audience: "",
-        category: "",
-        venue: "false",
-        is_finished: "false",
-        paid: "false",
-        event_speakers: [] as { name: string; position: string; linked_profile: string }[],
-        photos: [] as File[],
-        existingPhotos: [] as string[]
-    });
+    const [stats, setStats] = useState({ totalEvents: 0, totalUpcoming: 0, totalPast: 0 });
 
-    // Stats state
-    const [stats, setStats] = useState({
-        totalEvents: 0,
-        totalUpcoming: 0,
-        totalPast: 0,
-        totalAttendees: 0
-    });
+    const getStatusCount = (status: string) =>
+        status === 'all' ? userRequests.length : userRequests.filter(r => r.status?.toLowerCase() === status).length;
 
-    // Get status counts
-    const getStatusCount = (status: string) => {
-        if (status === 'all') return userRequests.length;
-        return userRequests.filter(r => r.status?.toLowerCase() === status).length;
-    };
-
-    // Fetch events
     const fetchEvents = async () => {
         if (!token?.access) return;
-
         setLoading(true);
         setError(null);
-
         try {
-            console.log("📡 Fetching events from Node API...");
-
-            const upcomingRes = await fetch(`${NODE_API_URL}/api/events/upcoming/`, {
-                headers: {
-                    'Authorization': `Bearer ${token.access}`,
-                    'Accept': 'application/json',
-                },
-            });
-
-            const pastRes = await fetch(`${NODE_API_URL}/api/events/past/`, {
-                headers: {
-                    'Authorization': `Bearer ${token.access}`,
-                    'Accept': 'application/json',
-                },
-            });
-
-            console.log("📡 Upcoming events response status:", upcomingRes.status);
-            console.log("📡 Past events response status:", pastRes.status);
-
+            const [upcomingRes, pastRes] = await Promise.all([
+                fetch(`${NODE_API_URL}/api/events/upcoming/`, { headers: { 'Authorization': `Bearer ${token.access}` } }),
+                fetch(`${NODE_API_URL}/api/events/past/`, { headers: { 'Authorization': `Bearer ${token.access}` } })
+            ]);
             if (upcomingRes.ok && pastRes.ok) {
                 const upcomingData = await upcomingRes.json();
                 const pastData = await pastRes.json();
-
-                console.log("📡 Upcoming events data received ");
-                console.log("📡 Past events data received");
-
                 const transformedUpcoming = (upcomingData.data || []).map(transformEvent);
                 const transformedPast = (pastData.data || []).map(transformEvent);
-
                 setUpcomingEvents(transformedUpcoming);
                 setPastEvents(transformedPast);
-
                 setStats({
                     totalEvents: transformedUpcoming.length + transformedPast.length,
                     totalUpcoming: transformedUpcoming.length,
                     totalPast: transformedPast.length,
-                    totalAttendees: [...transformedUpcoming, ...transformedPast].reduce((sum, e) => sum + (e.attendees || 0), 0)
                 });
-
-                console.log("✅ Events fetched successfully");
-            } else {
-                setError("Failed to fetch events");
-            }
-        } catch (err) {
-            console.error("❌ Error fetching events:", err);
-            setError("Failed to load events");
-        } finally {
-            setLoading(false);
-        }
+            } else { setError("Failed to fetch events"); }
+        } catch { setError("Failed to load events"); }
+        finally { setLoading(false); }
     };
 
-    // Fetch user requests
     const fetchUserRequests = async () => {
         if (!token?.access) return;
-
         setLoadingRequests(true);
         setRequestsError(null);
-
         try {
-            console.log("📡 Fetching user requests from Django API...");
-
             const response = await fetch(`${DJANGO_API_URL}/api/admin/requests/`, {
-                headers: {
-                    'Authorization': `Bearer ${token.access}`,
-                    'Accept': 'application/json',
-                },
+                headers: { 'Authorization': `Bearer ${token.access}` }
             });
-
-            console.log("📡 Requests response status:", response.status);
-
-            if (response.status === 401) {
-                setRequestsError("You don't have permission to view requests");
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(`Failed to fetch requests: ${response.status}`);
-            }
-
+            if (response.status === 401) { setRequestsError("No permission to view requests"); return; }
+            if (!response.ok) throw new Error(`Failed: ${response.status}`);
             const data = await response.json();
-            console.log("✅ User requests received", data);
-
-            let requests = [];
-            if (Array.isArray(data)) {
-                requests = data;
-            } else if (data.results && Array.isArray(data.results)) {
-                requests = data.results;
-            } else if (data.data && Array.isArray(data.data)) {
-                requests = data.data;
-            }
-
-            const transformedRequests = requests.map(transformRequest);
-            console.log("✅ Transformed requests:", transformedRequests);
-            setUserRequests(transformedRequests);
+            const requests = Array.isArray(data) ? data : (data.results || data.data || []);
+            setUserRequests(requests.map(transformRequest));
         } catch (err) {
-            console.error("❌ Error fetching requests:", err);
             setRequestsError(err instanceof Error ? err.message : "Failed to load requests");
-        } finally {
-            setLoadingRequests(false);
-        }
+        } finally { setLoadingRequests(false); }
     };
 
-    // Initial fetch
-    useEffect(() => {
-        fetchEvents();
-        fetchUserRequests();
-    }, [token]);
+    useEffect(() => { fetchEvents(); fetchUserRequests(); }, [token]);
 
-    // Handle input changes
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setEventForm(prev => ({ ...prev, [name]: value }));
-        if (fieldErrors[name]) {
-            setFieldErrors(prev => {
-                const newErrors = { ...prev };
-                delete newErrors[name];
-                return newErrors;
-            });
-        }
+        if (fieldErrors[name]) setFieldErrors(prev => { const n = { ...prev }; delete n[name]; return n; });
     };
 
-    // Handle file upload
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             const files = Array.from(e.target.files);
@@ -302,201 +242,121 @@ export default function Dashboard() {
         }
     };
 
-    const removeFile = (index: number) => {
-        setEventForm(prev => ({
-            ...prev,
-            photos: prev.photos.filter((_, i) => i !== index)
-        }));
-    };
+    const removeFile = (index: number) =>
+        setEventForm(prev => ({ ...prev, photos: prev.photos.filter((_, i) => i !== index) }));
 
-    const removeExistingPhoto = (index: number) => {
-        setEventForm(prev => ({
-            ...prev,
-            existingPhotos: prev.existingPhotos.filter((_, i) => i !== index)
-        }));
-    };
+    const removeExistingPhoto = (index: number) =>
+        setEventForm(prev => ({ ...prev, existingPhotos: prev.existingPhotos.filter((_, i) => i !== index) }));
 
-    // Handle speakers - Updated structure
-    const addSpeaker = () => {
-        setEventForm(prev => ({
-            ...prev,
-            event_speakers: [...prev.event_speakers, { name: "", position: "", linked_profile: "" }]
-        }));
-    };
+    const addSpeaker = () =>
+        setEventForm(prev => ({ ...prev, event_speakers: [...prev.event_speakers, { name: "", position: "", linked_profile: "" }] }));
 
     const updateSpeaker = (index: number, field: string, value: string) => {
-        const updatedSpeakers = [...eventForm.event_speakers];
-        updatedSpeakers[index] = { ...updatedSpeakers[index], [field]: value };
-        setEventForm(prev => ({ ...prev, event_speakers: updatedSpeakers }));
+        const updated = [...eventForm.event_speakers];
+        updated[index] = { ...updated[index], [field]: value };
+        setEventForm(prev => ({ ...prev, event_speakers: updated }));
     };
 
-    const removeSpeaker = (index: number) => {
-        setEventForm(prev => ({
-            ...prev,
-            event_speakers: prev.event_speakers.filter((_, i) => i !== index)
-        }));
-    };
+    const removeSpeaker = (index: number) =>
+        setEventForm(prev => ({ ...prev, event_speakers: prev.event_speakers.filter((_, i) => i !== index) }));
 
-    // Handle request click
     const handleRequestClick = (request: any) => {
         const requestId = request?.eventrequest_id || request?.id;
-        console.log("📋 Opening request details for ID:", requestId);
-
-        if (requestId) {
-            setSelectedRequestId(requestId);
-            setSelectedRequest(null);
-            setShowRequestModal(false);
-        } else {
-            console.error("❌ No request ID found in request");
-            alert("Cannot open request: This request doesn't have a valid ID");
-        }
+        if (requestId) setSelectedRequestId(requestId);
     };
 
-    // Handle create event
+    const buildFormData = () => {
+        const fd = new FormData();
+        if (eventForm.title?.trim()) fd.append("title", eventForm.title.trim());
+        if (eventForm.date) fd.append("date", eventForm.date);
+        if (eventForm.time) fd.append("time", formatTimeForAPI(eventForm.time));
+        if (eventForm.city?.trim()) fd.append("city", eventForm.city.trim());
+        if (eventForm.description?.trim()) fd.append("description", eventForm.description.trim());
+        if (eventForm.type) fd.append("type", eventForm.type);
+        if (eventForm.target_audience?.trim()) fd.append("target_audience", eventForm.target_audience.trim());
+        if (eventForm.category) fd.append("category", eventForm.category);
+        fd.append("venue", eventForm.venue);
+        fd.append("is_finished", eventForm.is_finished);
+        fd.append("paid", eventForm.paid);
+        const validSpeakers = eventForm.event_speakers.filter(s => s.name?.trim());
+        fd.append("event_speakers", JSON.stringify(validSpeakers.length > 0 ? validSpeakers : []));
+        if (eventForm.existingPhotos?.length > 0)
+            fd.append("existing_photos", JSON.stringify(eventForm.existingPhotos));
+        eventForm.photos.forEach(photo => fd.append("photos", photo));
+        return fd;
+    };
+
     const handleCreateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        if (!token?.access) {
-            setSubmitError("You must be logged in as admin");
-            return;
-        }
-
-        console.log("📝 Creating new event with data:", {
-            title: eventForm.title,
-            date: eventForm.date,
-            time: eventForm.time,
-            city: eventForm.city,
-            category: eventForm.category,
-            paid: eventForm.paid,
-            is_finished: eventForm.is_finished,
-            speakers: eventForm.event_speakers
-        });
-
-        setSubmitting(true);
-        setSubmitError(null);
-        setFieldErrors({});
-
+        if (!token?.access) return;
+        setSubmitting(true); setSubmitError(null); setFieldErrors({});
         try {
-            const formData = new FormData();
-            formData.append("title", eventForm.title.trim());
-            formData.append("date", eventForm.date);
-            formData.append("time", eventForm.time);
-            formData.append("city", eventForm.city.trim());
-            formData.append("description", eventForm.description.trim());
-            formData.append("type", eventForm.type);
-            formData.append("target_audience", eventForm.target_audience.trim());
-            formData.append("category", eventForm.category);
-            formData.append("venue", eventForm.venue);
-            formData.append("is_finished", eventForm.is_finished);
-            formData.append("paid", eventForm.paid);
-
-            // Handle speakers - now with linked_profile instead of image
-            const validSpeakers = eventForm.event_speakers.filter(s => s.name.trim() !== "");
-            if (validSpeakers.length > 0) {
-                formData.append("event_speakers", JSON.stringify(validSpeakers));
-            } else {
-                formData.append("event_speakers", JSON.stringify([]));
-            }
-
-            eventForm.photos.forEach((photo) => {
-                formData.append("photos", photo);
-            });
-
-            const url = `${NODE_API_URL}/api/admin/events/createEvent`;
-            console.log("📡 POST Request URL:", url);
-
-            // Log FormData contents
-            for (let pair of formData.entries()) {
-                console.log("📤 FormData entry:", pair[0], pair[1]);
-            }
-
-            const response = await fetch(url, {
+            const response = await fetch(`${NODE_API_URL}/api/admin/events/createEvent`, {
                 method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${token.access}`,
-                },
-                body: formData,
+                headers: { "Authorization": `Bearer ${token.access}` },
+                body: buildFormData(),
             });
-
-            console.log("📡 Create response status:", response.status);
-
-            if (response.status === 401) {
-                setSubmitError("Your session has expired. Please log in again.");
-                setTimeout(() => setLocation("/login"), 2000);
-                return;
-            }
-
-            const responseText = await response.text();
-            console.log("📡 Create response:", responseText);
-
+            const text = await response.text();
             if (response.ok) {
-                console.log("✅ Event created successfully");
                 setSubmitSuccess(true);
-
-                // Reset form
-                setEventForm({
-                    title: "",
-                    date: "",
-                    time: "",
-                    city: "",
-                    description: "",
-                    type: "",
-                    target_audience: "",
-                    category: "",
-                    venue: "false",
-                    is_finished: "false",
-                    paid: "false",
-                    event_speakers: [],
-                    photos: [],
-                    existingPhotos: []
-                });
-
-                // Refresh events
+                setEventForm({ ...EMPTY_FORM });
                 await fetchEvents();
-
-                setTimeout(() => {
-                    setShowCreateModal(false);
-                    setSubmitSuccess(false);
-                }, 1500);
+                setTimeout(() => { setShowCreateModal(false); setSubmitSuccess(false); }, 1500);
             } else {
-                try {
-                    const errorData = JSON.parse(responseText);
-                    setFieldErrors(errorData);
-                    setSubmitError("Please check the form for errors");
-                } catch {
-                    setSubmitError(responseText || "Failed to create event");
-                }
+                try { const err = JSON.parse(text); setFieldErrors(err); setSubmitError("Check form for errors"); }
+                catch { setSubmitError(text || "Failed to create event"); }
             }
-        } catch (err: any) {
-            console.error("❌ Error creating event:", err);
-            setSubmitError(err.message || "An error occurred");
-        } finally {
-            setSubmitting(false);
-        }
+        } catch (err: any) { setSubmitError(err.message || "An error occurred"); }
+        finally { setSubmitting(false); }
     };
 
-    // Handle view event
-    const handleViewClick = (event: any) => {
-        setSelectedEventId(event.id);
+    const handleEditSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!token?.access || !selectedEvent) return;
+        setSubmitting(true); setSubmitError(null); setFieldErrors({});
+        try {
+            const response = await fetch(`${NODE_API_URL}/api/admin/events/${selectedEvent.id}`, {
+                method: "PATCH",
+                headers: { "Authorization": `Bearer ${token.access}` },
+                body: buildFormData(),
+            });
+            const text = await response.text();
+            if (response.ok) {
+                setSubmitSuccess(true);
+                await fetchEvents();
+                setTimeout(() => { setShowEditModal(false); setSubmitSuccess(false); setSelectedEvent(null); }, 1500);
+            } else {
+                try { const err = JSON.parse(text); setSubmitError(err.message || err.error || `Failed (${response.status})`); if (err.errors) setFieldErrors(err.errors); }
+                catch { setSubmitError(text || `Failed (${response.status})`); }
+            }
+        } catch (err: any) { setSubmitError(err.message || "Network error"); }
+        finally { setSubmitting(false); }
     };
 
-    // Handle edit event - Updated for linked_profile
+    const handleDeleteConfirm = async () => {
+        if (!token?.access || !selectedEvent) return;
+        setSubmitting(true); setSubmitError(null);
+        try {
+            const response = await fetch(`${NODE_API_URL}/api/admin/events/${selectedEvent.id}`, {
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${token.access}`, "Content-Type": "application/json" }
+            });
+            if (response.ok) {
+                await fetchEvents();
+                setShowDeleteModal(false); setSelectedEvent(null);
+                setSubmitSuccess(true);
+                setTimeout(() => setSubmitSuccess(false), 1500);
+            } else {
+                const text = await response.text();
+                setSubmitError(text || "Failed to delete");
+            }
+        } catch (err: any) { setSubmitError(err.message || "Error deleting"); }
+        finally { setSubmitting(false); }
+    };
+
     const handleEditClick = (event: any) => {
-        console.log("🔍 Edit Event - ID:", event.id);
-        console.log("🔍 Event data for edit:", event);
-
         setSelectedEvent(event);
-
-        // Transform speakers to include linked_profile
-        const speakers = (event.speakers || []).map((speaker: any) => ({
-            name: speaker.name || "",
-            position: speaker.position || "",
-            linked_profile: speaker.linked_profile || ""
-        }));
-
-        const existingPhotos = event.photos || (event.image ? [event.image] : []);
-
-        const formData = {
+        setEventForm({
             title: event.title || "",
             date: event.date ? event.date.split('T')[0] : "",
             time: event.time || "",
@@ -508,341 +368,145 @@ export default function Dashboard() {
             venue: event.venue ? "true" : "false",
             is_finished: event.is_finished ? "true" : "false",
             paid: event.paid ? "true" : "false",
-            event_speakers: speakers,
+            event_speakers: (event.speakers || []).map((s: any) => ({
+                name: s.name || "", position: s.position || "", linked_profile: s.linked_profile || ""
+            })),
             photos: [],
-            existingPhotos: existingPhotos
-        };
-
-        console.log("✏️ Setting form data for edit:", formData);
-        setEventForm(formData);
+            existingPhotos: event.photos || (event.image ? [event.image] : [])
+        });
         setShowEditModal(true);
     };
 
-    // Handle edit submit
-    const handleEditSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!token?.access || !selectedEvent) {
-            setSubmitError("No authentication token or event selected");
-            return;
-        }
-
-        console.log("🚀 Updating Event - ID:", selectedEvent.id);
-        console.log("📋 Form data being sent:", {
-            title: eventForm.title,
-            date: eventForm.date,
-            time: eventForm.time,
-            city: eventForm.city,
-            category: eventForm.category,
-            venue: eventForm.venue,
-            is_finished: eventForm.is_finished,
-            paid: eventForm.paid,
-            speakers: eventForm.event_speakers,
-            existingPhotos: eventForm.existingPhotos.length,
-            newPhotos: eventForm.photos.length
-        });
-
-        setSubmitting(true);
+    const closeModal = (setter: (v: boolean) => void) => {
+        setter(false);
+        setSelectedEvent(null);
+        setEventForm({ ...EMPTY_FORM });
         setSubmitError(null);
         setFieldErrors({});
-
-        try {
-            const formData = new FormData();
-
-            // Append all fields
-            if (eventForm.title?.trim()) formData.append("title", eventForm.title.trim());
-            if (eventForm.date) formData.append("date", eventForm.date);
-            if (eventForm.time) formData.append("time", eventForm.time);
-            if (eventForm.city?.trim()) formData.append("city", eventForm.city.trim());
-            if (eventForm.description?.trim()) formData.append("description", eventForm.description.trim());
-            if (eventForm.type) formData.append("type", eventForm.type);
-            if (eventForm.target_audience?.trim()) formData.append("target_audience", eventForm.target_audience.trim());
-            if (eventForm.category) formData.append("category", eventForm.category);
-            formData.append("venue", eventForm.venue);
-            formData.append("is_finished", eventForm.is_finished);
-            formData.append("paid", eventForm.paid);
-
-            // Handle speakers - with linked_profile
-            const validSpeakers = eventForm.event_speakers.filter(s => s.name?.trim() !== "");
-            if (validSpeakers.length > 0) {
-                formData.append("event_speakers", JSON.stringify(validSpeakers));
-            } else {
-                formData.append("event_speakers", JSON.stringify([]));
-            }
-
-            // Handle existing photos
-            if (eventForm.existingPhotos && eventForm.existingPhotos.length > 0) {
-                formData.append("existing_photos", JSON.stringify(eventForm.existingPhotos));
-            }
-
-            // Handle new photos
-            eventForm.photos.forEach((photo) => {
-                formData.append("photos", photo);
-            });
-
-            const url = `${NODE_API_URL}/api/admin/events/${selectedEvent.id}`;
-            console.log("📡 PATCH Request URL:", url);
-
-            // Log FormData for debugging
-            for (let pair of formData.entries()) {
-                console.log("📤 FormData entry:", pair[0], pair[1]);
-            }
-
-            const response = await fetch(url, {
-                method: "PATCH",
-                headers: {
-                    "Authorization": `Bearer ${token.access}`,
-                },
-                body: formData,
-            });
-
-            console.log("📡 Response Status:", response.status);
-
-            const responseText = await response.text();
-            console.log("📡 Response Body:", responseText);
-
-            if (response.ok) {
-                console.log("✅ Update Successful");
-
-                setSubmitSuccess(true);
-
-                // Refresh events
-                await fetchEvents();
-
-                setTimeout(() => {
-                    setShowEditModal(false);
-                    setSubmitSuccess(false);
-                    setSelectedEvent(null);
-                }, 1500);
-            } else {
-                console.error("❌ Update Failed - Status:", response.status);
-                console.error("❌ Error Details:", responseText);
-
-                try {
-                    const errorJson = JSON.parse(responseText);
-                    setSubmitError(errorJson.message || errorJson.error || `Failed to update event (${response.status})`);
-                    if (errorJson.errors) {
-                        setFieldErrors(errorJson.errors);
-                    }
-                } catch {
-                    setSubmitError(responseText || `Failed to update event (${response.status})`);
-                }
-            }
-
-        } catch (err: any) {
-            console.error("❌ Network Error:", err.message);
-            setSubmitError(err.message || "Network error occurred while updating");
-        } finally {
-            setSubmitting(false);
-        }
     };
 
-    // Handle delete event
-    const handleDeleteClick = (event: any) => {
-        setSelectedEvent(event);
-        setShowDeleteModal(true);
-    };
-
-    const handleDeleteConfirm = async () => {
-        if (!token?.access || !selectedEvent) return;
-
-        console.log("🗑️ Deleting Event - ID:", selectedEvent.id);
-        setSubmitting(true);
-        setSubmitError(null);
-
-        try {
-            const url = `${NODE_API_URL}/api/admin/events/${selectedEvent.id}`;
-            console.log("📡 DELETE Request URL:", url);
-
-            const response = await fetch(url, {
-                method: "DELETE",
-                headers: {
-                    "Authorization": `Bearer ${token.access}`,
-                    "Content-Type": "application/json",
-                },
-            });
-
-            console.log("📡 DELETE Response Status:", response.status);
-
-            if (response.ok) {
-                console.log("✅ Delete Successful");
-                await fetchEvents();
-                setShowDeleteModal(false);
-                setSelectedEvent(null);
-                setSubmitSuccess(true);
-                setTimeout(() => setSubmitSuccess(false), 1500);
-            } else {
-                const errorText = await response.text();
-                console.error("❌ Delete error:", errorText);
-                setSubmitError(errorText || "Failed to delete event");
-            }
-        } catch (err: any) {
-            console.error("❌ Error deleting event:", err);
-            setSubmitError(err.message || "An error occurred while deleting");
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    // Filter events
     const filteredEvents = (activeTab === 'upcoming' ? upcomingEvents : pastEvents).filter(event => {
         const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             event.city.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = filterCategory === 'all' || event.category?.toLowerCase() === filterCategory;
-        const matchesDate = !dateRange.start || !dateRange.end ||
-            (new Date(event.date) >= new Date(dateRange.start) && new Date(event.date) <= new Date(dateRange.end));
-        return matchesSearch && matchesCategory && matchesDate;
+        return matchesSearch && matchesCategory;
     });
 
-    // Filter requests
-    const filteredRequests = userRequests.filter(req => {
-        if (statusFilter === 'all') return true;
-        return req.status?.toLowerCase() === statusFilter;
-    });
+    const filteredRequests = userRequests.filter(req =>
+        statusFilter === 'all' || req.status?.toLowerCase() === statusFilter
+    );
 
-    // Get unique categories for filter
     const allCategories = [...new Set([...upcomingEvents, ...pastEvents].map(e => e.category?.toLowerCase()))].filter(Boolean);
 
-    return (
-        <PageTransition className="pt-20 sm:pt-24 pb-20 min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                {/* Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-8"
-                >
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 sm:gap-4">
-                            <div className="relative flex-shrink-0">
-                                <div className="absolute inset-0 bg-gradient-to-br from-primary to-accent rounded-xl sm:rounded-2xl blur-xl opacity-50" />
-                            </div>
-                            <div className="min-w-0">
-                                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent truncate">
-                                    Admin Dashboard
-                                </h1>
-                                <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                                    Welcome back, {user?.name} · {new Date().toLocaleDateString('en-US', {
-                                    weekday: 'short',
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric'
-                                })}
-                                </p>
-                            </div>
-                        </div>
+    const STATS = [
+        { label: 'Total Events', value: stats.totalEvents, color: 'from-blue-500 to-cyan-500', icon: Calendar },
+        { label: 'Upcoming', value: stats.totalUpcoming, color: 'from-green-500 to-emerald-500', icon: Target },
+        { label: 'Past Events', value: stats.totalPast, color: 'from-orange-500 to-red-500', icon: Clock },
+    ];
 
-                        <div className="flex gap-2 sm:gap-3">
+    return (
+        <PageTransition className="pt-20 sm:pt-28 pb-16 min-h-screen bg-gradient-to-br from-background via-background to-secondary/20">
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+
+                {/* Header */}
+                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 sm:mb-8">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-display font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                                Admin Dashboard
+                            </h1>
+                            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                                Welcome back, {user?.name} · {new Date().toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
                             <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => {
-                                    fetchEvents();
-                                    fetchUserRequests();
-                                }}
-                                className="px-3 sm:px-4 py-2 sm:py-3 rounded-xl bg-secondary/50 backdrop-blur-sm border border-white/10 text-foreground font-semibold text-sm sm:text-base flex items-center gap-2 hover:bg-secondary/80 transition-all"
+                                whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
+                                onClick={() => { fetchEvents(); fetchUserRequests(); }}
+                                className="px-3 sm:px-4 py-2 rounded-xl bg-secondary/50 border border-white/10 text-sm font-medium flex items-center gap-2 hover:bg-secondary/80 transition-all"
                             >
-                                <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
+                                <RefreshCw className="w-4 h-4" />
                                 <span className="hidden sm:inline">Refresh</span>
                             </motion.button>
                             <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                                whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                                 onClick={() => setShowCreateModal(true)}
-                                className="px-4 sm:px-6 py-2 sm:py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                                className="px-4 sm:px-6 py-2 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold flex items-center gap-2 shadow-lg shadow-primary/25 hover:shadow-xl hover:-translate-y-0.5 transition-all"
                             >
-                                <Plus className="w-3 h-3 sm:w-5 sm:h-5" />
-                                <span className="hidden sm:inline">Add Event</span>
-                                <span className="sm:hidden">Add</span>
+                                <Plus className="w-4 h-4" />
+                                <span>Add Event</span>
                             </motion.button>
                         </div>
                     </div>
                 </motion.div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8">
-                    {[
-                        { icon: Calendar, label: 'Total Events', value: stats.totalEvents, color: 'from-blue-500 to-cyan-500', delay: 0 },
-                        { icon: Target, label: 'Upcoming', value: stats.totalUpcoming, color: 'from-green-500 to-emerald-500', delay: 0.1 },
-                        { icon: Clock, label: 'Past Events', value: stats.totalPast, color: 'from-orange-500 to-red-500', delay: 0.2 },
-                    ].map((stat, idx) => {
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
+                    {STATS.map((stat, idx) => {
                         const Icon = stat.icon;
                         return (
                             <motion.div
                                 key={idx}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: stat.delay }}
-                                whileHover={{ y: -2 }}
-                                className="relative group"
+                                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.08 }} whileHover={{ y: -2 }}
+                                className="relative glass-panel p-3 sm:p-5 rounded-2xl sm:rounded-3xl backdrop-blur-xl border border-white/10 overflow-hidden"
                             >
-                                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 rounded-2xl sm:rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                <div className="relative glass-panel p-3 sm:p-6 rounded-2xl sm:rounded-3xl backdrop-blur-xl border border-white/10">
-                                    <div className={`absolute top-0 right-0 w-16 h-16 sm:w-32 sm:h-32 bg-gradient-to-br ${stat.color} rounded-full blur-2xl sm:blur-3xl opacity-20 group-hover:opacity-30 transition-opacity`} />
-                                    <div className="relative">
-                                        <div className={`inline-flex p-1.5 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-br ${stat.color} bg-opacity-10 mb-2 sm:mb-4`}>
-                                            <Icon className="w-3 h-3 sm:w-6 sm:h-6 text-white" />
-                                        </div>
-                                        <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-foreground mb-0.5 sm:mb-1">{stat.value}</p>
-                                        <p className="text-[10px] sm:text-xs lg:text-sm font-medium text-muted-foreground">{stat.label}</p>
+                                <div className={`absolute -top-4 -right-4 w-20 h-20 bg-gradient-to-br ${stat.color} rounded-full blur-2xl opacity-20`} />
+                                <div className="relative">
+                                    <div className={`inline-flex p-1.5 sm:p-2.5 rounded-xl bg-gradient-to-br ${stat.color} mb-2 sm:mb-3`}>
+                                        <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-white" />
                                     </div>
+                                    <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground">{stat.value}</p>
+                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">{stat.label}</p>
                                 </div>
                             </motion.div>
                         );
                     })}
                 </div>
 
-                {/* User Requests Section */}
+                {/* Requests Section */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="glass-panel p-4 sm:p-6 rounded-2xl sm:rounded-3xl backdrop-blur-xl border border-white/10 mb-8"
+                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                    className="glass-panel p-4 sm:p-6 rounded-2xl sm:rounded-3xl backdrop-blur-xl border border-white/10 mb-6 sm:mb-8"
                 >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-1.5 sm:p-2 rounded-xl bg-purple-500/20">
-                                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500" />
+                    <div className="flex flex-col gap-4 mb-5">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded-xl bg-purple-500/20">
+                                    <FileText className="w-4 h-4 text-purple-500" />
+                                </div>
+                                <h2 className="text-base sm:text-xl font-bold">User Event Requests</h2>
                             </div>
-                            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold">User Event Requests</h2>
+                            <button
+                                onClick={() => setShowMobileFilters(!showMobileFilters)}
+                                className="sm:hidden px-3 py-1.5 rounded-xl bg-secondary/50 flex items-center gap-1.5 text-xs font-medium"
+                            >
+                                Filter
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMobileFilters ? 'rotate-180' : ''}`} />
+                            </button>
                         </div>
 
-                        {/* Mobile Filter Toggle */}
-                        <button
-                            onClick={() => setShowMobileFilters(!showMobileFilters)}
-                            className="sm:hidden px-4 py-2 rounded-xl bg-secondary/50 flex items-center justify-between w-full text-sm"
-                        >
-                            <span className="font-medium">Filter by Status</span>
-                            <ChevronDown className={`w-4 h-4 transition-transform ${showMobileFilters ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        {/* Status Filters */}
+                        {/* Status filters */}
                         <div className={`${showMobileFilters ? 'flex' : 'hidden'} sm:flex flex-wrap gap-2`}>
-                            {STATUS_FILTERS.map((filter) => {
+                            {STATUS_FILTERS.map(filter => {
                                 const Icon = filter.icon;
                                 const count = getStatusCount(filter.value);
                                 return (
                                     <motion.button
                                         key={filter.value}
-                                        whileHover={{ scale: 1.05 }}
-                                        whileTap={{ scale: 0.95 }}
+                                        whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}
                                         onClick={() => setStatusFilter(filter.value)}
-                                        className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 backdrop-blur-sm border ${
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 border ${
                                             statusFilter === filter.value
-                                                ? `${filter.color} text-white border-white/20 shadow-lg`
+                                                ? `${filter.color} text-white border-white/20 shadow-md`
                                                 : 'bg-secondary/50 text-foreground border-white/10 hover:bg-secondary/80'
                                         }`}
                                     >
-                                        <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
-                                        <span className="hidden sm:inline">{filter.label}</span>
-                                        <span className="sm:hidden">{filter.label.slice(0, 3)}</span>
-                                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] sm:text-xs ${
-                                            statusFilter === filter.value
-                                                ? 'bg-white/20 text-white'
-                                                : 'bg-background/50 text-foreground'
-                                        }`}>
-                                            {count}
-                                        </span>
+                                        <Icon className="w-3 h-3" />
+                                        {filter.label}
+                                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                                            statusFilter === filter.value ? 'bg-white/20' : 'bg-background/50'
+                                        }`}>{count}</span>
                                     </motion.button>
                                 );
                             })}
@@ -850,80 +514,63 @@ export default function Dashboard() {
                     </div>
 
                     {loadingRequests ? (
-                        <div className="text-center py-12 sm:py-20">
-                            <div className="relative inline-block">
-                                <div className="absolute inset-0 bg-gradient-to-br from-primary to-accent rounded-full blur-xl opacity-50 animate-pulse" />
-                                <div className="relative w-12 h-12 sm:w-16 sm:h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                            </div>
-                            <p className="mt-4 text-sm sm:text-base text-muted-foreground">Loading requests...</p>
+                        <div className="text-center py-16">
+                            <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+                            <p className="mt-4 text-sm text-muted-foreground">Loading requests...</p>
                         </div>
                     ) : requestsError ? (
-                        <div className="text-center py-12 sm:py-20">
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <XCircle className="w-8 h-8 sm:w-10 sm:h-10 text-red-500" />
-                            </div>
-                            <p className="text-sm sm:text-base text-red-500">{requestsError}</p>
+                        <div className="text-center py-16">
+                            <XCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+                            <p className="text-sm text-red-500">{requestsError}</p>
                         </div>
                     ) : filteredRequests.length === 0 ? (
-                        <div className="text-center py-12 sm:py-20">
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-secondary/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
-                            </div>
-                            <p className="text-sm sm:text-base text-muted-foreground">No {statusFilter !== 'all' ? statusFilter : ''} requests found.</p>
+                        <div className="text-center py-16">
+                            <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                            <p className="text-sm text-muted-foreground">No {statusFilter !== 'all' ? statusFilter : ''} requests found.</p>
                         </div>
                     ) : (
-                        <div className="space-y-3 sm:space-y-4">
-                            {filteredRequests.map((request) => (
+                        <div className="space-y-3">
+                            {filteredRequests.map(request => (
                                 <motion.div
                                     key={request.eventrequest_id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    whileHover={{ y: -2 }}
-                                    className="group relative bg-secondary/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 hover:bg-secondary/30 transition-all cursor-pointer border border-white/5 hover:border-white/10"
+                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                    whileHover={{ y: -1 }}
+                                    className="bg-secondary/20 rounded-xl sm:rounded-2xl p-4 sm:p-5 hover:bg-secondary/30 transition-all cursor-pointer border border-white/5 hover:border-white/10"
                                     onClick={() => handleRequestClick(request)}
                                 >
-                                    <div className="absolute top-0 right-0 w-48 h-48 sm:w-64 sm:h-64 bg-gradient-to-br from-primary/5 to-accent/5 rounded-full blur-2xl sm:blur-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="relative">
-                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
-                                                    <h3 className="font-semibold text-base sm:text-lg truncate">
-                                                        {request.name}
-                                                    </h3>
-                                                    {STATUS_FILTERS.map(filter => {
-                                                        if (filter.value === (request.status?.toLowerCase() || 'new')) {
-                                                            const Icon = filter.icon;
-                                                            return (
-                                                                <span key={filter.value} className={`${filter.color} text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-medium flex items-center gap-1 flex-shrink-0`}>
-                                                                    <Icon className="w-2 h-2 sm:w-3 sm:h-3" />
-                                                                    {filter.label}
-                                                                </span>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })}
-                                                </div>
-                                                <p className="text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-3 line-clamp-2">
-                                                    {request.description || request.objective}
-                                                </p>
-                                                <div className="flex flex-wrap gap-3 sm:gap-4 text-[10px] sm:text-xs">
-                                                    <span className="flex items-center gap-1 text-muted-foreground">
-                                                        <Calendar className="w-2 h-2 sm:w-3 sm:h-3" />
-                                                        <span>{new Date(request.event_date).toLocaleDateString()}</span>
-                                                    </span>
-                                                    <span className="flex items-center gap-1 text-muted-foreground">
-                                                        <MapPin className="w-2 h-2 sm:w-3 sm:h-3" />
-                                                        <span className="truncate max-w-[60px] sm:max-w-none">{request.city}</span>
-                                                    </span>
-                                                    <span className="flex items-center gap-1 text-muted-foreground">
-                                                        <Tag className="w-2 h-2 sm:w-3 sm:h-3" />
-                                                        <span className="truncate max-w-[60px] sm:max-w-none">{request.category}</span>
-                                                    </span>
-                                                    <span className="flex items-center gap-1 text-muted-foreground">
-                                                        <Users className="w-2 h-2 sm:w-3 sm:h-3" />
-                                                        <span>{request.expected_attendees} attendees</span>
-                                                    </span>
-                                                </div>
+                                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                                                <h3 className="font-semibold text-sm sm:text-base truncate">{request.name}</h3>
+                                                {STATUS_FILTERS.map(filter => {
+                                                    if (filter.value !== (request.status?.toLowerCase() || 'new')) return null;
+                                                    const Icon = filter.icon;
+                                                    return (
+                                                        <span key={filter.value} className={`${filter.color} text-white px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 flex-shrink-0`}>
+                                                            <Icon className="w-2.5 h-2.5" />
+                                                            {filter.label}
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{request.description || request.objective}</p>
+                                            <div className="flex flex-wrap gap-3 text-[10px] sm:text-xs text-muted-foreground">
+                                                <span className="flex items-center gap-1">
+                                                    <Calendar className="w-3 h-3" />
+                                                    {new Date(request.event_date).toLocaleDateString()}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <MapPin className="w-3 h-3" />
+                                                    {request.city}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <Tag className="w-3 h-3" />
+                                                    {request.category}
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <Users className="w-3 h-3" />
+                                                    {request.expected_attendees} attendees
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
@@ -933,55 +580,49 @@ export default function Dashboard() {
                     )}
                 </motion.div>
 
-                {/* Events Management Section */}
+                {/* Events Management */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
+                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
                     className="glass-panel p-4 sm:p-6 rounded-2xl sm:rounded-3xl backdrop-blur-xl border border-white/10"
                 >
-                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="p-1.5 sm:p-2 rounded-xl bg-blue-500/20">
-                                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 rounded-xl bg-blue-500/20">
+                                <Calendar className="w-4 h-4 text-blue-500" />
                             </div>
-                            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold">Events Management</h2>
+                            <h2 className="text-base sm:text-xl font-bold">Events Management</h2>
                         </div>
-
-                        {/* Search and Filter */}
-                        <div className="flex flex-col sm:flex-row gap-3">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
+                        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                            <div className="relative flex-1 sm:flex-none">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                                 <input
                                     type="text"
                                     placeholder="Search events..."
                                     value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="pl-8 sm:pl-9 pr-3 sm:pr-4 py-1.5 sm:py-2 rounded-xl bg-background/50 border border-white/10 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-xs sm:text-sm w-full sm:w-64 backdrop-blur-sm"
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                    className="pl-8 pr-3 py-2 rounded-xl bg-background/50 border border-white/10 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm w-full sm:w-56"
                                 />
                             </div>
                             <select
                                 value={filterCategory}
-                                onChange={(e) => setFilterCategory(e.target.value)}
-                                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-background/50 border border-white/10 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-xs sm:text-sm backdrop-blur-sm"
+                                onChange={e => setFilterCategory(e.target.value)}
+                                className="px-3 py-2 rounded-xl bg-background/50 border border-white/10 focus:border-primary outline-none text-sm"
                             >
                                 <option value="all">All Categories</option>
-                                {allCategories.map(cat => (
-                                    <option key={cat} value={cat}>{cat}</option>
-                                ))}
+                                {allCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                             </select>
                         </div>
                     </div>
 
                     {/* Tabs */}
-                    <div className="flex gap-2 mb-6 border-b border-white/10 pb-2 overflow-x-auto">
-                        {['upcoming', 'past'].map((tab) => (
+                    <div className="flex gap-2 mb-5 border-b border-white/10 pb-2">
+                        {(['upcoming', 'past'] as const).map(tab => (
                             <button
                                 key={tab}
-                                onClick={() => setActiveTab(tab as 'upcoming' | 'past')}
-                                className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg font-medium text-xs sm:text-sm capitalize whitespace-nowrap transition-all ${
+                                onClick={() => setActiveTab(tab)}
+                                className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium capitalize transition-all ${
                                     activeTab === tab
-                                        ? 'bg-gradient-to-r from-primary to-accent text-white shadow-lg'
+                                        ? 'bg-gradient-to-r from-primary to-accent text-white shadow-md'
                                         : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
                                 }`}
                             >
@@ -990,116 +631,80 @@ export default function Dashboard() {
                         ))}
                     </div>
 
-                    {/* Events Table */}
                     {loading ? (
-                        <div className="text-center py-12 sm:py-20">
-                            <div className="relative inline-block">
-                                <div className="absolute inset-0 bg-gradient-to-br from-primary to-accent rounded-full blur-xl opacity-50 animate-pulse" />
-                                <div className="relative w-12 h-12 sm:w-16 sm:h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                            </div>
-                            <p className="mt-4 text-sm sm:text-base text-muted-foreground">Loading events...</p>
+                        <div className="text-center py-16">
+                            <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+                            <p className="mt-4 text-sm text-muted-foreground">Loading events...</p>
                         </div>
                     ) : error ? (
-                        <div className="text-center py-12 sm:py-20 text-sm sm:text-base text-red-500">{error}</div>
+                        <div className="text-center py-16 text-sm text-red-500">{error}</div>
                     ) : filteredEvents.length === 0 ? (
-                        <div className="text-center py-12 sm:py-20">
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-secondary/30 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Calendar className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
-                            </div>
-                            <p className="text-sm sm:text-base text-muted-foreground">No events found. Click "Add Event" to create one.</p>
+                        <div className="text-center py-16">
+                            <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                            <p className="text-sm text-muted-foreground">No events found. Click "Add Event" to create one.</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto -mx-4 sm:mx-0">
-                            <div className="inline-block min-w-full align-middle">
+                        <>
+                            {/* Desktop Table */}
+                            <div className="hidden sm:block overflow-x-auto">
                                 <table className="min-w-full">
                                     <thead>
                                     <tr className="border-b border-white/10">
-                                        <th className="text-left py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-medium text-muted-foreground">Event</th>
-                                        <th className="text-left py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-medium text-muted-foreground">Date</th>
-                                        <th className="text-left py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-medium text-muted-foreground">City</th>
-                                        <th className="text-left py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-medium text-muted-foreground">Category</th>
-                                        <th className="text-left py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-medium text-muted-foreground">Paid</th>
-                                        <th className="text-right py-3 px-2 sm:px-4 text-[10px] sm:text-xs font-medium text-muted-foreground">Actions</th>
+                                        {['Event', 'Date', 'City', 'Category', 'Paid', 'Actions'].map(h => (
+                                            <th key={h} className={`py-3 px-4 text-xs font-medium text-muted-foreground ${h === 'Actions' ? 'text-right' : 'text-left'}`}>{h}</th>
+                                        ))}
                                     </tr>
                                     </thead>
                                     <tbody>
                                     {filteredEvents.map((event, idx) => (
                                         <motion.tr
                                             key={event.id}
-                                            initial={{ opacity: 0, y: 20 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: idx * 0.05 }}
+                                            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                            transition={{ delay: idx * 0.04 }}
                                             className="border-b border-white/5 hover:bg-white/5 transition-colors group"
                                         >
-                                            <td className="py-2 sm:py-3 px-2 sm:px-4">
-                                                <div className="flex items-center gap-2 sm:gap-3">
-                                                    <div className="relative w-6 h-6 sm:w-8 sm:h-8 rounded-lg overflow-hidden flex-shrink-0">
-                                                        <div className="absolute inset-0 bg-gradient-to-br from-primary to-accent opacity-20" />
-                                                        <img
-                                                            src={event.image}
-                                                            alt={event.title}
-                                                            className="w-full h-full object-cover"
-                                                        />
+                                            <td className="py-3 px-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0">
+                                                        <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="font-medium text-xs sm:text-sm truncate">{event.title}</p>
-                                                        <p className="text-[8px] sm:text-xs text-muted-foreground truncate">{event.type}</p>
+                                                        <p className="font-medium text-sm truncate max-w-[160px]">{event.title}</p>
+                                                        <p className="text-xs text-muted-foreground">{event.type}</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="py-2 sm:py-3 px-2 sm:px-4">
-                                                <div className="text-[10px] sm:text-xs">
-                                                    <p className="whitespace-nowrap">{new Date(event.date).toLocaleDateString()}</p>
-                                                    <p className="text-[8px] sm:text-xs text-muted-foreground">{event.time}</p>
-                                                </div>
+                                            <td className="py-3 px-4">
+                                                <p className="text-xs">{new Date(event.date).toLocaleDateString()}</p>
+                                                <p className="text-xs text-muted-foreground">{event.time}</p>
                                             </td>
-                                            <td className="py-2 sm:py-3 px-2 sm:px-4 text-[10px] sm:text-xs truncate max-w-[60px] sm:max-w-none">{event.city}</td>
-                                            <td className="py-2 sm:py-3 px-2 sm:px-4">
-                                                    <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-xs whitespace-nowrap ${
-                                                        event.category === 'public'
-                                                            ? 'bg-green-500/20 text-green-500'
-                                                            : 'bg-orange-500/20 text-orange-500'
-                                                    }`}>
-                                                        {event.category}
-                                                    </span>
+                                            <td className="py-3 px-4 text-xs">{event.city}</td>
+                                            <td className="py-3 px-4">
+                                                    <span className={`px-2 py-1 rounded-full text-xs ${
+                                                        event.category === 'public' ? 'bg-green-500/20 text-green-500' : 'bg-orange-500/20 text-orange-500'
+                                                    }`}>{event.category}</span>
                                             </td>
-                                            <td className="py-2 sm:py-3 px-2 sm:px-4">
-                                                    <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-xs whitespace-nowrap ${
-                                                        event.paid
-                                                            ? 'bg-yellow-500/20 text-yellow-500'
-                                                            : 'bg-gray-500/20 text-gray-400'
-                                                    }`}>
-                                                        {event.paid ? 'Paid' : 'Free'}
-                                                    </span>
+                                            <td className="py-3 px-4">
+                                                    <span className={`px-2 py-1 rounded-full text-xs ${
+                                                        event.paid ? 'bg-yellow-500/20 text-yellow-500' : 'bg-gray-500/20 text-gray-400'
+                                                    }`}>{event.paid ? 'Paid' : 'Free'}</span>
                                             </td>
-                                            <td className="py-2 sm:py-3 px-2 sm:px-4 text-right">
-                                                <div className="flex items-center justify-end gap-1 sm:gap-2 opacity-70 group-hover:opacity-100 transition-opacity">
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
-                                                        onClick={() => handleViewClick(event)}
-                                                        className="p-1 sm:p-2 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                                                        title="View Details"
-                                                    >
-                                                        <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                                            <td className="py-3 px-4 text-right">
+                                                <div className="flex items-center justify-end gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                                                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                                                                   onClick={() => setSelectedEventId(event.id)}
+                                                                   className="p-1.5 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors" title="View">
+                                                        <Eye className="w-3.5 h-3.5" />
                                                     </motion.button>
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
-                                                        onClick={() => handleEditClick(event)}
-                                                        className="p-1 sm:p-2 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors"
-                                                        title="Edit Event"
-                                                    >
-                                                        <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
+                                                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                                                                   onClick={() => handleEditClick(event)}
+                                                                   className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors" title="Edit">
+                                                        <Edit className="w-3.5 h-3.5" />
                                                     </motion.button>
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.1 }}
-                                                        whileTap={{ scale: 0.9 }}
-                                                        onClick={() => handleDeleteClick(event)}
-                                                        className="p-1 sm:p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
-                                                        title="Delete Event"
-                                                    >
-                                                        <Trash className="w-3 h-3 sm:w-4 sm:h-4" />
+                                                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                                                                   onClick={() => { setSelectedEvent(event); setShowDeleteModal(true); }}
+                                                                   className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors" title="Delete">
+                                                        <Trash className="w-3.5 h-3.5" />
                                                     </motion.button>
                                                 </div>
                                             </td>
@@ -1108,7 +713,54 @@ export default function Dashboard() {
                                     </tbody>
                                 </table>
                             </div>
-                        </div>
+
+                            {/* Mobile Cards */}
+                            <div className="sm:hidden space-y-3">
+                                {filteredEvents.map((event, idx) => (
+                                    <motion.div
+                                        key={event.id}
+                                        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                        transition={{ delay: idx * 0.04 }}
+                                        className="bg-secondary/20 rounded-xl p-3 border border-white/5"
+                                    >
+                                        <div className="flex items-start gap-3 mb-3">
+                                            <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                                                <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-sm truncate">{event.title}</p>
+                                                <p className="text-xs text-muted-foreground">{event.type} · {event.city}</p>
+                                                <p className="text-xs text-muted-foreground">{new Date(event.date).toLocaleDateString()} {event.time}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex gap-2">
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                                    event.category === 'public' ? 'bg-green-500/20 text-green-500' : 'bg-orange-500/20 text-orange-500'
+                                                }`}>{event.category}</span>
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] ${
+                                                    event.paid ? 'bg-yellow-500/20 text-yellow-500' : 'bg-gray-500/20 text-gray-400'
+                                                }`}>{event.paid ? 'Paid' : 'Free'}</span>
+                                            </div>
+                                            <div className="flex gap-1.5">
+                                                <button onClick={() => setSelectedEventId(event.id)}
+                                                        className="p-1.5 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors">
+                                                    <Eye className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button onClick={() => handleEditClick(event)}
+                                                        className="p-1.5 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors">
+                                                    <Edit className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button onClick={() => { setSelectedEvent(event); setShowDeleteModal(true); }}
+                                                        className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors">
+                                                    <Trash className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </motion.div>
 
@@ -1119,25 +771,7 @@ export default function Dashboard() {
                             title="Create New Event"
                             form={eventForm}
                             onSubmit={handleCreateSubmit}
-                            onClose={() => {
-                                setShowCreateModal(false);
-                                setEventForm({
-                                    title: "",
-                                    date: "",
-                                    time: "",
-                                    city: "",
-                                    description: "",
-                                    type: "",
-                                    target_audience: "",
-                                    category: "",
-                                    venue: "false",
-                                    is_finished: "false",
-                                    paid: "false",
-                                    event_speakers: [],
-                                    photos: [],
-                                    existingPhotos: []
-                                });
-                            }}
+                            onClose={() => closeModal(setShowCreateModal)}
                             submitting={submitting}
                             submitSuccess={submitSuccess}
                             submitError={submitError}
@@ -1159,26 +793,7 @@ export default function Dashboard() {
                             title="Edit Event"
                             form={eventForm}
                             onSubmit={handleEditSubmit}
-                            onClose={() => {
-                                setShowEditModal(false);
-                                setSelectedEvent(null);
-                                setEventForm({
-                                    title: "",
-                                    date: "",
-                                    time: "",
-                                    city: "",
-                                    description: "",
-                                    type: "",
-                                    target_audience: "",
-                                    category: "",
-                                    venue: "false",
-                                    is_finished: "false",
-                                    paid: "false",
-                                    event_speakers: [],
-                                    photos: [],
-                                    existingPhotos: []
-                                });
-                            }}
+                            onClose={() => closeModal(setShowEditModal)}
                             submitting={submitting}
                             submitSuccess={submitSuccess}
                             submitError={submitError}
@@ -1194,7 +809,6 @@ export default function Dashboard() {
                     )}
                 </AnimatePresence>
 
-                {/* Event Details Card */}
                 {selectedEventId && token?.access && (
                     <EventDetailsCard
                         eventId={selectedEventId}
@@ -1204,30 +818,22 @@ export default function Dashboard() {
                     />
                 )}
 
-                {/* Request Details Card */}
                 {selectedRequestId && token?.access && (
                     <RequestDetailsCard
                         requestId={selectedRequestId}
                         token={token.access}
                         isOpen={!!selectedRequestId}
-                        onClose={() => {
-                            setSelectedRequestId(null);
-                            setSelectedRequest(null);
-                        }}
+                        onClose={() => setSelectedRequestId(null)}
                         onStatusChange={fetchUserRequests}
                     />
                 )}
 
-                {/* Delete Confirmation Modal */}
                 <AnimatePresence>
                     {showDeleteModal && selectedEvent && (
                         <DeleteConfirmModal
                             event={selectedEvent}
                             onConfirm={handleDeleteConfirm}
-                            onClose={() => {
-                                setShowDeleteModal(false);
-                                setSelectedEvent(null);
-                            }}
+                            onClose={() => { setShowDeleteModal(false); setSelectedEvent(null); }}
                             submitting={submitting}
                             submitError={submitError}
                         />
@@ -1238,452 +844,189 @@ export default function Dashboard() {
     );
 }
 
-// Event Modal Component - Updated with Private/Public category, Paid field, linked_profile, and time
-function EventModal({
-                        title,
-                        form,
-                        onSubmit,
-                        onClose,
-                        submitting,
-                        submitSuccess,
-                        submitError,
-                        fieldErrors,
-                        handleChange,
-                        handleFileChange,
-                        removeFile,
-                        removeExistingPhoto,
-                        addSpeaker,
-                        updateSpeaker,
-                        removeSpeaker
-                    }: any) {
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+// Event Modal
+function EventModal({ title, form, onSubmit, onClose, submitting, submitSuccess, submitError, fieldErrors, handleChange, handleFileChange, removeFile, removeExistingPhoto, addSpeaker, updateSpeaker, removeSpeaker }: any) {
+    const inputCls = "w-full px-3 py-2 text-sm rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none";
+    const labelCls = "block text-xs sm:text-sm font-medium text-muted-foreground mb-1";
+
+    const FieldError = ({ name }: { name: string }) => fieldErrors[name] ? (
+        <p className="mt-1 text-xs text-red-500">{Array.isArray(fieldErrors[name]) ? fieldErrors[name].join(', ') : fieldErrors[name]}</p>
+    ) : null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
             <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 onClick={onClose}
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative w-full max-w-full sm:max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto bg-card rounded-2xl sm:rounded-3xl p-3 sm:p-6 z-10"
+                initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
+                className="relative w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[88vh] overflow-y-auto bg-card rounded-t-3xl sm:rounded-3xl p-4 sm:p-6 z-10"
             >
-                <div className="sticky top-0 bg-card pb-2 sm:pb-4 border-b border-border mb-3 sm:mb-4 flex justify-between items-center">
-                    <h2 className="text-lg sm:text-xl lg:text-2xl font-bold">{title}</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-1.5 sm:p-2 rounded-full bg-secondary hover:bg-secondary/80 transition-colors"
-                    >
-                        <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                {/* Sticky Header */}
+                <div className="sticky top-0 bg-card z-10 pb-3 border-b border-border mb-4 flex justify-between items-center">
+                    <h2 className="text-lg sm:text-xl font-bold">{title}</h2>
+                    <button onClick={onClose} className="p-1.5 rounded-full bg-secondary hover:bg-secondary/80 transition-colors">
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
 
                 {submitSuccess ? (
-                    <div className="text-center py-8 sm:py-12">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Check className="w-8 h-8 sm:w-10 sm:h-10 text-green-500" />
+                    <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Check className="w-8 h-8 text-green-500" />
                         </div>
-                        <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-green-500 mb-2">Success!</h3>
-                        <p className="text-sm sm:text-base text-muted-foreground">Event has been successfully saved.</p>
+                        <h3 className="text-xl font-bold text-green-500 mb-2">Success!</h3>
+                        <p className="text-sm text-muted-foreground">Event saved successfully.</p>
                     </div>
                 ) : (
-                    <form onSubmit={onSubmit} className="space-y-3 sm:space-y-4">
-                        {/* Title */}
-                        <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Event Title <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="title"
-                                value={form.title}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                placeholder="e.g., Tech Conference 2024"
-                            />
-                            {fieldErrors.title && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {Array.isArray(fieldErrors.title) ? fieldErrors.title.join(', ') : fieldErrors.title}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Date */}
-                        <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Event Date <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="date"
-                                name="date"
-                                value={form.date}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                            />
-                            {fieldErrors.date && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {Array.isArray(fieldErrors.date) ? fieldErrors.date.join(', ') : fieldErrors.date}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Time */}
-                        <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Event Time
-                            </label>
-                            <input
-                                type="time"
-                                name="time"
-                                value={form.time}
-                                onChange={handleChange}
-                                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                placeholder="e.g., 7:00 PM"
-                            />
-                            {fieldErrors.time && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {Array.isArray(fieldErrors.time) ? fieldErrors.time.join(', ') : fieldErrors.time}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* City */}
-                        <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                City <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="city"
-                                value={form.city}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                placeholder="e.g., New York"
-                            />
-                            {fieldErrors.city && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {Array.isArray(fieldErrors.city) ? fieldErrors.city.join(', ') : fieldErrors.city}
-                                </p>
-                            )}
+                    <form onSubmit={onSubmit} className="space-y-4">
+                        {/* Two-column grid for small fields */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className={labelCls}>Event Title <span className="text-red-500">*</span></label>
+                                <input type="text" name="title" value={form.title} onChange={handleChange} required className={inputCls} placeholder="Tech Conference 2024" />
+                                <FieldError name="title" />
+                            </div>
+                            <div>
+                                <label className={labelCls}>City <span className="text-red-500">*</span></label>
+                                <input type="text" name="city" value={form.city} onChange={handleChange} required className={inputCls} placeholder="New York" />
+                                <FieldError name="city" />
+                            </div>
+                            <div>
+                                <label className={labelCls}>Event Date <span className="text-red-500">*</span></label>
+                                <input type="date" name="date" value={form.date} onChange={handleChange} required className={inputCls} />
+                                <FieldError name="date" />
+                            </div>
+                            <div>
+                                <label className={labelCls}>Event Time</label>
+                                <input type="time" name="time" value={form.time} onChange={handleChange} className={inputCls} />
+                                <FieldError name="time" />
+                            </div>
+                            <div>
+                                <label className={labelCls}>Event Type <span className="text-red-500">*</span></label>
+                                <select name="type" value={form.type} onChange={handleChange} required className={inputCls}>
+                                    <option value="">Select type</option>
+                                    {EVENT_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
+                                <FieldError name="type" />
+                            </div>
+                            <div>
+                                <label className={labelCls}>Category <span className="text-red-500">*</span></label>
+                                <select name="category" value={form.category} onChange={handleChange} required className={inputCls}>
+                                    <option value="">Select category</option>
+                                    {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
+                                <FieldError name="category" />
+                            </div>
+                            <div>
+                                <label className={labelCls}>Venue <span className="text-red-500">*</span></label>
+                                <select name="venue" value={form.venue} onChange={handleChange} className={inputCls}>
+                                    <option value="false">No venue</option>
+                                    <option value="true">Has venue</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelCls}>Target Audience <span className="text-red-500">*</span></label>
+                                <input type="text" name="target_audience" value={form.target_audience} onChange={handleChange} required className={inputCls} placeholder="Developers, Students" />
+                                <FieldError name="target_audience" />
+                            </div>
                         </div>
 
                         {/* Description */}
                         <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Description <span className="text-red-500">*</span>
-                            </label>
-                            <textarea
-                                name="description"
-                                value={form.description}
-                                onChange={handleChange}
-                                required
-                                rows={isMobile ? 2 : 3}
-                                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-none"
-                                placeholder="Describe the event in detail..."
-                            />
-                            {fieldErrors.description && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {Array.isArray(fieldErrors.description) ? fieldErrors.description.join(', ') : fieldErrors.description}
-                                </p>
-                            )}
+                            <label className={labelCls}>Description <span className="text-red-500">*</span></label>
+                            <textarea name="description" value={form.description} onChange={handleChange} required rows={3} className={`${inputCls} resize-none`} placeholder="Describe the event..." />
+                            <FieldError name="description" />
                         </div>
 
-                        {/* Event Type */}
-                        <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Event Type <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                name="type"
-                                value={form.type}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                            >
-                                <option value="">Select type</option>
-                                {EVENT_TYPE_OPTIONS.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
-                            {fieldErrors.type && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {Array.isArray(fieldErrors.type) ? fieldErrors.type.join(', ') : fieldErrors.type}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Target Audience */}
-                        <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Target Audience <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="target_audience"
-                                value={form.target_audience}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                placeholder="e.g., Developers, Students"
-                            />
-                            {fieldErrors.target_audience && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {Array.isArray(fieldErrors.target_audience) ? fieldErrors.target_audience.join(', ') : fieldErrors.target_audience}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Category */}
-                        <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Category <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                name="category"
-                                value={form.category}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                            >
-                                <option value="">Select category</option>
-                                {CATEGORY_OPTIONS.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                            </select>
-                            {fieldErrors.category && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {Array.isArray(fieldErrors.category) ? fieldErrors.category.join(', ') : fieldErrors.category}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Venue */}
-                        <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Venue <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                name="venue"
-                                value={form.venue}
-                                onChange={handleChange}
-                                required
-                                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                            >
-                                <option value="false">No venue</option>
-                                <option value="true">Has venue</option>
-                            </select>
-                            {fieldErrors.venue && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {Array.isArray(fieldErrors.venue) ? fieldErrors.venue.join(', ') : fieldErrors.venue}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Event Status */}
-                        <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Event Status <span className="text-red-500">*</span>
-                            </label>
-                            <div className="flex gap-4 items-center">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="is_finished"
-                                        value="false"
-                                        checked={form.is_finished === "false"}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 text-primary"
-                                    />
-                                    <span className="text-sm text-foreground">Upcoming</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="is_finished"
-                                        value="true"
-                                        checked={form.is_finished === "true"}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 text-primary"
-                                    />
-                                    <span className="text-sm text-foreground">Past</span>
-                                </label>
-                            </div>
-                            {fieldErrors.is_finished && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {Array.isArray(fieldErrors.is_finished) ? fieldErrors.is_finished.join(', ') : fieldErrors.is_finished}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Paid Event */}
-                        <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Paid Event <span className="text-red-500">*</span>
-                            </label>
-                            <div className="flex gap-4 items-center">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="paid"
-                                        value="false"
-                                        checked={form.paid === "false"}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 text-primary"
-                                    />
-                                    <span className="text-sm text-foreground">Free</span>
-                                </label>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="paid"
-                                        value="true"
-                                        checked={form.paid === "true"}
-                                        onChange={handleChange}
-                                        className="w-4 h-4 text-primary"
-                                    />
-                                    <span className="text-sm text-foreground">Paid</span>
-                                </label>
-                            </div>
-                            {fieldErrors.paid && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {Array.isArray(fieldErrors.paid) ? fieldErrors.paid.join(', ') : fieldErrors.paid}
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Speakers Section */}
-                        <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                Event Speakers
-                            </label>
-                            {form.event_speakers.map((speaker: any, index: number) => (
-                                <div key={index} className="space-y-2 mb-3 sm:mb-4 p-2 sm:p-3 bg-secondary/20 rounded-xl">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-[10px] sm:text-xs font-semibold text-muted-foreground">Speaker {index + 1}</span>
-                                        {form.event_speakers.length > 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => removeSpeaker(index)}
-                                                className="text-red-500 hover:text-red-600"
-                                            >
-                                                <X className="w-3 h-3 sm:w-4 sm:h-4" />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <input
-                                        type="text"
-                                        value={speaker.name}
-                                        onChange={(e) => updateSpeaker(index, "name", e.target.value)}
-                                        className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                        placeholder="Speaker name *"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={speaker.position}
-                                        onChange={(e) => updateSpeaker(index, "position", e.target.value)}
-                                        className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                        placeholder="Position (e.g., CEO, Professor)"
-                                    />
-                                    <input
-                                        type="text"
-                                        value={speaker.linked_profile}
-                                        onChange={(e) => updateSpeaker(index, "linked_profile", e.target.value)}
-                                        className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                                        placeholder="Linked Profile URL (e.g., LinkedIn profile)"
-                                    />
+                        {/* Radio groups */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className={labelCls}>Event Status</label>
+                                <div className="flex gap-4 mt-1">
+                                    {[{ v: "false", l: "Upcoming" }, { v: "true", l: "Past" }].map(opt => (
+                                        <label key={opt.v} className="flex items-center gap-2 cursor-pointer text-sm">
+                                            <input type="radio" name="is_finished" value={opt.v} checked={form.is_finished === opt.v} onChange={handleChange} className="w-4 h-4 text-primary" />
+                                            {opt.l}
+                                        </label>
+                                    ))}
                                 </div>
-                            ))}
-                            <button
-                                type="button"
-                                onClick={addSpeaker}
-                                className="mt-1 sm:mt-2 text-xs sm:text-sm text-accent hover:text-accent/80 font-medium flex items-center gap-1"
-                            >
-                                <Plus className="w-3 h-3 sm:w-4 sm:h-4" /> Add Speaker
+                            </div>
+                            <div>
+                                <label className={labelCls}>Pricing</label>
+                                <div className="flex gap-4 mt-1">
+                                    {[{ v: "false", l: "Free" }, { v: "true", l: "Paid" }].map(opt => (
+                                        <label key={opt.v} className="flex items-center gap-2 cursor-pointer text-sm">
+                                            <input type="radio" name="paid" value={opt.v} checked={form.paid === opt.v} onChange={handleChange} className="w-4 h-4 text-primary" />
+                                            {opt.l}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Speakers */}
+                        <div>
+                            <label className={labelCls}>Event Speakers</label>
+                            <div className="space-y-3">
+                                {form.event_speakers.map((speaker: any, index: number) => (
+                                    <div key={index} className="p-3 bg-secondary/20 rounded-xl space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs font-medium text-muted-foreground">Speaker {index + 1}</span>
+                                            <button type="button" onClick={() => removeSpeaker(index)} className="text-red-500 hover:text-red-600">
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                        <input type="text" value={speaker.name} onChange={e => updateSpeaker(index, "name", e.target.value)} className={inputCls} placeholder="Speaker name *" />
+                                        <input type="text" value={speaker.position} onChange={e => updateSpeaker(index, "position", e.target.value)} className={inputCls} placeholder="Position (e.g., CEO)" />
+                                        <input type="text" value={speaker.linked_profile} onChange={e => updateSpeaker(index, "linked_profile", e.target.value)} className={inputCls} placeholder="LinkedIn / Profile URL" />
+                                    </div>
+                                ))}
+                            </div>
+                            <button type="button" onClick={addSpeaker} className="mt-2 text-sm text-accent hover:text-accent/80 font-medium flex items-center gap-1">
+                                <Plus className="w-3.5 h-3.5" /> Add Speaker
                             </button>
                         </div>
 
-                        {/* Existing Photos Section */}
-                        {form.existingPhotos && form.existingPhotos.length > 0 && (
+                        {/* Existing Photos */}
+                        {form.existingPhotos?.length > 0 && (
                             <div>
-                                <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-2">
-                                    Existing Photos
-                                </label>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                                <label className={labelCls}>Existing Photos</label>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                                     {form.existingPhotos.map((photo: string, index: number) => (
                                         <div key={index} className="relative group">
-                                            <img
-                                                src={photo}
-                                                alt={`Event ${index + 1}`}
-                                                className="w-full h-20 object-cover rounded-lg border border-border"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => removeExistingPhoto(index)}
-                                                className="absolute top-1 right-1 p-1 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                                title="Remove photo"
-                                            >
+                                            <img src={photo} alt={`Photo ${index + 1}`} className="w-full h-20 object-cover rounded-lg border border-border" />
+                                            <button type="button" onClick={() => removeExistingPhoto(index)}
+                                                    className="absolute top-1 right-1 p-0.5 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <X className="w-3 h-3 text-white" />
                                             </button>
                                         </div>
                                     ))}
                                 </div>
-                                <p className="text-xs text-muted-foreground mb-2">
-                                    Note: Removing photos will delete them permanently when saving.
-                                </p>
                             </div>
                         )}
 
-                        {/* New Photos Upload */}
+                        {/* Photo Upload */}
                         <div>
-                            <label className="block text-xs sm:text-sm font-medium text-muted-foreground mb-1">
-                                {form.existingPhotos?.length > 0 ? 'Add More Photos' : 'Event Photos'}
+                            <label className={labelCls}>{form.existingPhotos?.length > 0 ? 'Add More Photos' : 'Event Photos'}</label>
+                            <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer text-sm">
+                                <Upload className="w-4 h-4" />
+                                Upload photos
+                                <input type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
                             </label>
-                            <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-                                <label className="cursor-pointer">
-                                    <div className="px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base rounded-xl bg-secondary hover:bg-secondary/80 transition-colors flex items-center gap-2">
-                                        <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
-                                        Upload
-                                    </div>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        onChange={handleFileChange}
-                                        className="hidden"
-                                    />
-                                </label>
-                                {form.photos.length > 0 && (
-                                    <span className="text-xs sm:text-sm text-muted-foreground">
-                                        {form.photos.length} new file(s)
-                                    </span>
-                                )}
-                            </div>
-
                             {form.photos.length > 0 && (
-                                <div className="mt-3 sm:mt-4 space-y-2">
+                                <div className="mt-2 space-y-1.5">
                                     {form.photos.map((file: File, index: number) => (
-                                        <div key={index} className="flex items-center justify-between bg-secondary/20 p-2 rounded-xl">
+                                        <div key={index} className="flex items-center justify-between bg-secondary/20 px-3 py-1.5 rounded-lg">
                                             <div className="flex items-center gap-2 min-w-0">
-                                                <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4 text-accent flex-shrink-0" />
-                                                <span className="text-xs sm:text-sm truncate">{file.name}</span>
-                                                <span className="text-[8px] sm:text-xs text-muted-foreground flex-shrink-0">
-                                                    ({(file.size / 1024).toFixed(1)} KB)
-                                                </span>
+                                                <ImageIcon className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+                                                <span className="text-xs truncate">{file.name}</span>
+                                                <span className="text-[10px] text-muted-foreground flex-shrink-0">({(file.size / 1024).toFixed(1)}KB)</span>
                                             </div>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeFile(index)}
-                                                className="text-red-500 hover:text-red-600 flex-shrink-0"
-                                            >
-                                                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                                            <button type="button" onClick={() => removeFile(index)} className="text-red-500 hover:text-red-600 flex-shrink-0 ml-2">
+                                                <Trash2 className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
                                     ))}
@@ -1692,24 +1035,14 @@ function EventModal({
                         </div>
 
                         {submitError && (
-                            <div className="p-2 sm:p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 text-xs sm:text-sm">
-                                {submitError}
-                            </div>
+                            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 text-sm">{submitError}</div>
                         )}
 
-                        <button
-                            type="submit"
-                            disabled={submitting}
-                            className="w-full py-2 sm:py-3 text-sm sm:text-base rounded-xl bg-gradient-to-r from-primary to-accent text-white font-bold hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
+                        <button type="submit" disabled={submitting}
+                                className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold text-sm hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                             {submitting ? (
-                                <span className="flex items-center justify-center gap-2">
-                                    <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Saving...
-                                </span>
-                            ) : (
-                                "Save Event"
-                            )}
+                                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Saving...</>
+                            ) : "Save Event"}
                         </button>
                     </form>
                 )}
@@ -1718,53 +1051,34 @@ function EventModal({
     );
 }
 
-// Delete Confirmation Modal
+// Delete Modal
 function DeleteConfirmModal({ event, onConfirm, onClose, submitting, submitError }: any) {
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
             <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 onClick={onClose}
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
             <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="relative w-full max-w-sm sm:max-w-md bg-card rounded-2xl sm:rounded-3xl p-4 sm:p-6 z-10"
+                initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
+                className="relative w-full sm:max-w-md bg-card rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 z-10"
             >
-                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold mb-2 sm:mb-4">Delete Event</h2>
-                <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
-                    Are you sure you want to delete "{event.title}"? This action cannot be undone.
+                <h2 className="text-lg font-bold mb-2">Delete Event</h2>
+                <p className="text-sm text-muted-foreground mb-5">
+                    Are you sure you want to delete <span className="font-medium text-foreground">"{event.title}"</span>? This cannot be undone.
                 </p>
                 {submitError && (
-                    <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 text-xs sm:text-sm">
-                        {submitError}
-                    </div>
+                    <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 text-sm">{submitError}</div>
                 )}
-                <div className="flex gap-2 sm:gap-3">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 py-2 sm:py-3 text-sm sm:text-base rounded-xl bg-secondary text-foreground font-semibold hover:bg-secondary/80 transition-colors"
-                        disabled={submitting}
-                    >
+                <div className="flex gap-2">
+                    <button onClick={onClose} disabled={submitting}
+                            className="flex-1 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-semibold hover:bg-secondary/80 transition-colors">
                         Cancel
                     </button>
-                    <button
-                        onClick={onConfirm}
-                        disabled={submitting}
-                        className="flex-1 py-2 sm:py-3 text-sm sm:text-base rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                        {submitting ? (
-                            <>
-                                <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                Deleting...
-                            </>
-                        ) : (
-                            "Delete"
-                        )}
+                    <button onClick={onConfirm} disabled={submitting}
+                            className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                        {submitting ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Deleting...</> : "Delete"}
                     </button>
                 </div>
             </motion.div>
